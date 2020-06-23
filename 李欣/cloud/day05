@@ -1,0 +1,173 @@
+**********************************************COULD*DAY05*****************************************************
+一 : 制作自定义镜像
+	1.1使用镜像启动容器
+		1）在该容器基础上修改yum源
+		[root@docker1 docker_images]# docker run -it docker.io/centos
+		[root@8d07ecd7e345 /]# rm -rf /etc/yum.repos.d/*  
+		[root@8d07ecd7e345 /]# vi /etc/yum.repos.d/dvd.repo
+
+		2）安装测试软件
+		[root@8d07ecd7e345 /]# yum -y install net-tools iproute psmisc vim-enhanced
+	
+		3）ifconfig查看
+		[root@8d07ecd7e345 /]# ifconfig 
+
+		4)另存为另外一个镜像
+			1 创建新建镜像
+				[root@docker1 docker_images]# docker start 8d07ecd7e345        //可以简写为8d，要保证唯一性
+				[root@docker1 docker_images]# docker commit 8d07ecd7e345 docker.io/myos:latest		//保存镜像
+			2 查看新建的镜像
+				[root@docker1 ~]# docker images 
+
+			3 验证新建镜像
+				[root@docker1 docker_images]# docker run -it docker.io/myos:latest
+				c7b4664bf /]# ifconfig 
+
+	1.2使用Dockerfile文件创建一个新的镜像文件
+					Dockerfile语法格式：
+					– FROM:基础镜像
+					– MAINTAINER:镜像创建者信息(说明)
+					– EXPOSE:开放的端口
+					– ENV:设置环境变量
+					– ADD:复制文件到镜像
+					– RUN:制作镜像时执行的命令,可以有多个
+					– WORKDIR:定义容器默认工作目录
+					– CMD:容器启动时执行的命令,仅可以有一条CMD 格式 : CMD ["ls","-l","-a"]
+				
+		1）创建一个Apache的镜像文件
+			[root@docker1 ~]# mkdir bulid
+			[root@docker1 ~]# cd bulid
+			[root@docker1 bulid]# touch Dockerfile    //Dockerfile文件第一个字母要大写
+			[root@docker1 bulid]# cp /etc/yum.repos.d/local.repo  ./
+			[root@docker1 bulid]# vi Dockerfile
+				FROM  docker.io/centos:latest
+				RUN rm -rf /etc/yum.repos.d/*.repo
+				ADD local.repo /etc/yum.repos.d/local.repo
+				RUN yum -y install vim net-tools iproute psmisc bash-completion
+			[root@docker1 bulid]# docker build -t test:latest .		//后面有点,代表当前目录
+			[root@31 abc]# docker images		//查看是否制作成功
+			
+				[root@31 aaa]# vim Dockerfile	 //Dockerfile文件第一个字母要大写	//创建sshd服务镜像	
+				FROM docker.io/myos:latest
+				RUN yum -y install openssh-server initscripts
+				RUN sshd-keygen
+				RUN echo "a" | passwd --stdin root
+				EXPOSE 22
+				CMD ["/usr/sbin/sshd", "-D"]
+				[root@31 aaa]# docker build -t myos:sshd .
+
+				[root@31 a]# vim Dockerfile 		//创建httpd服务镜像
+				FROM docker.io/myos:latest
+				RUN yum -y install httpd
+				WORKDIR /var/www/html 		 //定义容器默认工作目录
+				ADD index.html index.html
+				EXPOSE 80  					  //设置开放端口号
+				CMD ["/usr/sbin/httpd",  "-DFOREGROUND" ]
+				[root@31 a]# docker build -t httpd:test .
+				[root@31 a]# docker run -itd httpd:test
+
+二 : 创建私有镜像仓库
+	服务端 : 
+		[root@31 ~]# yum -y install  docker-distribution		//装包
+		[root@31 ~]# systemctl start docker-distribution		//启动
+		[root@31 ~]# systemctl enable docker-distribution
+		[root@31 ~]# ss -ltun								//查看端口
+		[root@31 ~]# curl 192.168.1.31:5000/v2/		//访问
+		{}[root@31 ~]# 										//开头有大括号就成功
+	客户端 : 
+		[root@32 ~]# vim /etc/sysconfig/docker
+			13 ADD_REGISTRY='--add-registry 192.168.1.31:5000'		//Docker仓库地址
+			24 INSECURE_REGISTRY='--insecure-registry 192.168.1.31:5000'		//允许非加密方式访问仓库
+		[root@32 ~]# systemctl restart docker		//记得关闭所有在运行的docker
+		
+		服务端将镜像上传到服务器 :
+			  298  docker tag docker.io/busybox:latest 192.168.1.31:5000/busybox:latest
+			  299  docker images 
+			  300  docker push 192.168.1.31:5000/busybox:latest 
+			  301  docker tag httpd:test 192.168.1.31:5000/httpd:test
+			  302  docker images 
+			  303  docker push 192.168.1.31:5000/httpd:test 
+			  304  docker tag myos:sshd 192.168.1.31:5000/myos:sshd
+			  305  docker push 192.168.1.31:5000/myos:sshd 
+			  306  docker tag docker.io/myos:latest  192.168.1.31:5000/myos:latest
+			  307  docker push 192.168.1.31:5000/myos:latest 
+			  
+		客户端可以直接启动镜像:
+			[root@32 ~]# docker run -itd myos:latest
+			[root@32 ~]# curl 192.168.1.31:5000/v2/_catalog		//查看有哪些镜像
+			{"repositories":["busybox","httpd","myos"]}
+
+
+三 : 共享存储
+	共享存储端:
+		yum -y install nfs-utils		//装包
+		vim /etc/exports				//修改共享目录
+			/nfsdir *(rw,no_root_squash)	
+		systemctl start nfs-server	//启动
+		systemctl enable nfs-server
+		showmount  -e  192.168.1.33		//查看共享目录
+		exportfs  -rv				//查看共享目录
+		chmod 777 /nfsdir			//默认权限是root的,nfs没权限
+		echo abcd > index.html		//编写主页面
+		
+	客户端:
+		yum -y install nfs-utils		//装包
+		vim /etc/fstab				//修改默认挂载文件
+			192.168.1.33:/nfsdir /nfsdir nfs defaults 0 0
+		mkdir /nfsdir		
+		mount -a				//重新挂载
+		docker run -itd -v /nfsdir/:/var/www/html 192.168.1.31:5000/httpd:test	//创建docker -v将真机目录挂载到容器中
+		docker exec -it a1 /bin/bash	//链接查看
+		curl 172.17.0.2
+	
+四 : 自定义网桥
+	不指定默认为docke0网桥
+		[root@31 ~]# docker run -it docker.io/myos:latest		//创建容器,不指定默认为docke0网桥
+		[root@5050efc90f26 /]# ifconfig
+			eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+       	inet 172.17.0.3  netmask 255.255.0.0  broadcast 0.0.0.0
+
+		[root@31 ~]# docker run -it docker.io/myos:latest
+		[root@bcc492aeac8b /]# ifconfig
+			eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        	inet 172.17.0.4  netmask 255.255.0.0  broadcast 0.0.0.0
+
+		[root@bcc492aeac8b /]# ping 172.17.0.3		//可以互通
+		
+	创建docker1网桥,并指定创建容器
+		[root@31 ~]# docker network create --subnet=10.10.10.0/24 docker1
+		[root@31 ~]# docker run -it --network=docker1 docker.io/myos:latest 
+		[root@61a4f7651c4b /]# ifconfig
+				eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+       		inet 10.10.10.2  netmask 255.255.255.0  broadcast 0.0.0.0
+
+		[root@31 ~]# docker run -it --network=docker1 docker.io/myos:latest 
+		[root@1a4a3b4b71d1 /]# ifconfig
+			eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+       	inet 10.10.10.3  netmask 255.255.255.0  broadcast 0.0.0.0
+
+		[root@1a4a3b4b71d1 /]# ping 10.10.10.2		//可以通
+		[root@1a4a3b4b71d1 /]# ping 172.17.0.3		//失败
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

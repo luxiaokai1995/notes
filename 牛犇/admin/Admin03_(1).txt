@@ -1,0 +1,404 @@
+牛犇
+#################################################
+命令行基础
+
+什么是命令?
+• Linux命令
+– 用来实现某一类功能的指令或程序
+   执行大多数命令,都要找到相应的程序
+[root@localhost ~]# ls /usr/bin/hostname
+/usr/bin/hostname    #绿色可以执行的程序
+[root@localhost ~]# 
+
+– 命令的执行依赖于解释器(默认解释器:/bin/bash)
+
+          用户------->解释器------->内核------->硬件
+
+[root@localhost ~]# cat /etc/shells 
+/bin/sh
+/bin/bash
+/sbin/nologin
+/usr/bin/sh
+/usr/bin/bash
+/usr/sbin/nologin
+/bin/tcsh
+/bin/csh
+[root@localhost ~]#
+###################################################
+• Linux命令的分类
+– 内部命令:属于解释器的一部分
+– 外部命令:解释器之外的其他程序
+
+命令行的一般格式
+• 基本用法
+– 命令字        [选项]...        [参数1]    [参数2]...
+    打                                  周老师 .......
+
+查看文本文件内容
+[root@localhost ~]# cat   /etc/redhat-release 
+[root@localhost ~]# cat --help
+
+[root@localhost ~]# cat -n  /etc/redhat-release 
+[root@localhost ~]# cat -n  /etc/passwd
+
+[root@localhost ~]# cat /etc/redhat-release /etc/hosts
+
+[root@localhost ~]# ls /root /boot
+[root@localhost ~]# ls --help
+
+################################################
+快速编辑技巧
+• Tab键自动补全
+– 可补齐命令字、选项、参数、文件路径、软件名、服务名
+
+• 快捷键
+– Ctrl + l:清空整个屏幕                                    
+– Ctrl + c:废弃当前编辑的命令行(结束正在运行的命令)
+– Esc + . 或 Alt + .:粘贴上一个命令的参数
+
+[root@localhost ~]# ls /etc/hosts
+/etc/hosts
+[root@localhost ~]# cat Alt + .
+
+[root@localhost ~]# cat -n Alt + .
+
+
+– Ctrl + u:清空至行首
+– Ctrl + w:往回删除一个单词(以空格界定)
+
+##################################################
+mount挂载操作:让目录成为设备的访问点
+一  安装软件包,前提需要基本软件安装包
+
+二 从光盘中获得软件包
+
+三  让系统识别光盘内容
+
+Windows系统:
+        光盘文件---->光驱设备---->CD驱动器图标(访问点)
+Linux系统:
+        光盘文件---->光驱设备---->访问点(目录/文件夹)
+              /dev/sr0
+              /dev/hdc
+  一切皆文件
+
+1.图形鼠标将光盘镜像文件放入虚拟光驱设备
+2.查看光驱设备
+[root@localhost ~]# ls /dev/sr0
+/dev/sr0
+[root@localhost ~]# ls /dev/cdrom
+/dev/cdrom         #青色:代表快捷方式颜色
+[root@localhost ~]# 
+
+3.命令行挂载设备
+[root@localhost ~]# mkdir /dvd
+[root@localhost ~]# ls /dvd
+[root@localhost ~]# mount /dev/cdrom  /dvd
+mount: /dev/sr0 写保护，将以只读方式挂载
+[root@localhost ~]# ls /dvd/
+
+4.卸载
+[root@localhost ~]# umount /dvd/
+[root@localhost ~]# ls /dvd/
+[root@localhost ~]# umount /dvd/
+umount: /dvd/：未挂载
+[root@localhost ~]# mkdir /nsd1904
+[root@localhost ~]# mount /dev/cdrom  /nsd1904
+[root@localhost ~]# ls /nsd1904
+
+注意事项:
+ 1.卸载,当前不要在挂载点(访问点)目录下
+[root@localhost dvd]# umount /dvd/
+umount: /dvd：目标忙。
+        (有些情况下通过 lsof(8) 或 fuser(1) 可以
+         找到有关使用该设备的进程的有用信息)
+[root@localhost dvd]# 
+
+ 2.挂载允许一个设备具备多个挂载点(访问点)
+ 3.不允许多个设备挂载到一个挂载点(访问点)
+ 4.强烈建议挂载点(访问点)选择自己创建的目录
+
+##################################################
+查看及切换目录
+
+使用pwd、cd
+• pwd — Print Working Directory
+– 用途:查看当前工作目录
+
+• cd — Change Directory
+– 用途:切换工作目录
+– 格式:cd   [目标文件夹位置]
+
+    ~:用户的家目录
+  ~user表示用户user的家目录
+
+  /root:管理员的家目录
+  /home:存放所有普通用户家目录
+[root@localhost ~]# useradd tom   #创建普通用户tom
+[root@localhost ~]# cd ~tom
+[root@localhost tom]# pwd
+/home/tom
+[root@localhost tom]# useradd dc  #创建普通用户dc
+[root@localhost tom]# cd ~dc
+[root@localhost dc]# pwd
+/home/dc
+[root@localhost dc]# useradd tc   #创建普通用户tc
+[root@localhost dc]# cd ~tc
+[root@localhost tc]# pwd
+/home/tc
+[root@localhost tc]# cd ~root    #切换到root用户的家目录
+[root@localhost ~]# pwd
+####################################################
+. 表示当前目录
+
+####################################################
+ls 列出文档及属性
+• ls — List
+– 格式:ls [选项]... [目录或文件名]
+• 常用命令选项
+– -l:以长格式显示,显示目录内容的详细属性
+– -A:包括名称以 . 开头的隐藏文档
+– -d:显示目录本身(而不是内容)的属性
+– -h:提供易读的容量单位(K、M等)
+
+[root@localhost ~]# ls /root
+[root@localhost ~]# ls -l  /root   #显示目录内容的详细属性
+
+[root@localhost ~]# ls -ld /root   #显示目录本身的详细属性
+[root@localhost ~]# ls -ld /
+
+[root@localhost ~]# ls -l /dev/cdrom   #显示文件详细属性
+[root@localhost ~]# ls -l /etc/passwd
+[root@localhost ~]# ls -l /etc/redhat-release
+
+[root@localhost ~]# ls -l /etc/passwd
+[root@localhost ~]# ls -lh /etc/passwd
+
+[root@localhost ~]# ls -lh /boot
+
+[root@localhost ~]# ls -A /root
+[root@localhost ~]# ls -A /boot
+
+百度搜索 EB容量单位
+百度搜索 正则表达式
+
+###################################################
+
+使用通配符
+• 针对不确定的文档名称,以特殊字符表示
+– *:任意多个任意字符                
+– ?:单个字符
+[root@localhost ~]# ls /boot/vm*     #以vm开头
+[root@localhost ~]# ls /root/a*      #以a开头
+[root@localhost ~]# ls /dev/tty*     #以tty开头
+ 
+[root@localhost ~]# ls /etc/*tab     #以tab结尾
+[root@localhost ~]# ls /etc/*.conf   #以.conf结尾
+
+[root@localhost ~]# ls /etc/r*.conf   #以r开头并且.conf结尾
+[root@localhost ~]# ls /etc/*passwd*
+
+[root@localhost ~]# ls /dev/tty?
+[root@localhost ~]# ls /dev/tty??
+
+• 针对不确定的文档名称,以特殊字符表示
+– [a-z]:多个字符或连续范围中的一个,若无则忽略
+– {a,min,xy}:多组不同的字符串,全匹配
+
+[root@localhost ~]# ls /dev/tty[3-8]
+[root@localhost ~]# ls /dev/tty[1-9]
+
+[root@localhost ~]# ls /dev/tty{1,3,5,7,9}
+[root@localhost ~]# ls /dev/tty{1,3,5,7,9,23}
+[root@localhost ~]# ls /dev/tty{1,3,S0,S1}
+
+[root@localhost ~]# ls /dev/tty{1,3,S0,haha}
+
+#################################################
+别名的定义:简化复杂命令
+
+• 查看已设置的别名
+– alias [别名名称]
+• 定义新的别名
+– alias 别名名称='实际执行的命令行'
+• 取消已设置的别名
+– unalias [别名名称]
+
+[root@localhost ~]# hostname
+localhost.localdomain
+[root@localhost ~]# hn
+bash: hn: 未找到命令...
+[root@localhost ~]# alias hn='hostname'  #定义别名
+[root@localhost ~]# hn                   #运行别名测试
+
+[root@localhost ~]# alias        #查看当前系统有效的别名
+[root@localhost ~]# unalias hn   #删除别名
+[root@localhost ~]# hn
+bash: hn: 未找到命令...
+[root@localhost ~]# 
+####################################################
+
+mkdir 创建目录
+• mkdir — Make Directory
+– 格式:mkdir [-p] [/路径/]目录名...
+       -p:创建父目录
+
+[root@localhost ~]# mkdir /opt/nsd01
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# mkdir  /opt/nsd02   /opt/nsd03
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# mkdir -p  /vod/movie/cartoon
+[root@localhost ~]# ls /
+
+[root@localhost ~]# mkdir -p  /opt/aa/bb/cc/dd
+[root@localhost ~]# ls /opt/
+
+-R:
+  递归:目录本身以及目录下所有
+
+[root@server0 ~]# ls -R /vod       
+/vod:
+movie
+/vod/movie:
+cartoon
+/vod/movie/cartoon:
+
+#################################################
+rm 删除
+• rm — Remove
+– 格式:rm [选项]... 文件或目录...            
+• 常用命令选项
+– -r、-f:递归删除(含目录)、强制删除
+
+[root@localhost ~]# rm -rf /opt/nsd03
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# rm -rf /opt/rh
+[root@localhost ~]# ls /opt/
+
+##################################################
+mv 移动/改名
+• mv — Move
+– 格式: mv [选项]... 原文件...    目标路径
+[root@localhost ~]# mkdir /opt/nsd01
+[root@localhost ~]# touch /opt/1.txt
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# mv /opt/1.txt /opt/nsd01/
+[root@localhost ~]# ls /opt/
+[root@localhost ~]# ls /opt/nsd01/
+
+重命名:路径不变的移动
+[root@localhost ~]# mv /opt/nsd01/  /opt/haha01
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# mv /opt/haha01/ /opt/stu01
+[root@localhost ~]# ls /opt/
+####################################################
+cp 复制
+• cp — Copy
+– 格式:cp [选项]... 原文件...      目标路径
+
+• 常用命令选项
+– -r:递归,复制目录时必须有此选项
+1.基本用法
+[root@localhost ~]# cp /etc/passwd  /opt/
+[root@localhost ~]# ls /opt/
+
+[root@localhost ~]# cp -r /home/  /opt/
+[root@localhost ~]# ls /opt/
+
+2.可以支持两个以上的参数,永远将最后一个参数做目标,其他所有参数作为源
+[root@localhost ~]# cp -r  /etc/hosts  /etc/fstab /boot/   /opt/
+
+[root@localhost ~]# ls /opt/
+
+3.cp经常与点  . 连用,将数据复制到当前路径下
+    .:当前目录
+
+[root@localhost ~]# cd /opt/
+[root@localhost opt]# pwd
+[root@localhost opt]# cp -r /etc/shadow  .  
+[root@localhost opt]# ls
+
+[root@localhost /]# cd /etc/sysconfig/network-scripts/
+[root@localhost network-scripts]# pwd
+[root@localhost network-scripts]# cp /etc/passwd    .  
+[root@localhost network-scripts]# ls
+
+4.复制到目标路径下,可以重新命名
+[root@localhost /]# rm -rf /opt/*     
+[root@localhost /]# ls /opt/
+[root@localhost /]# cp /etc/passwd  /opt/
+[root@localhost /]# ls /opt/
+
+[root@localhost /]# cp /etc/passwd /opt/pd
+[root@localhost /]# ls /opt/
+
+[root@localhost /]# cp -r /home/ /opt/abc
+[root@localhost /]# ls /opt/
+
+请分析下列两次复制的不同:
+[root@localhost /]# rm -rf /opt/*
+[root@localhost /]# cp -r /home/  /opt/redhat
+           将/home目录复制到/opt/并且重命名为redhat
+[root@localhost /]# cp -r /home/  /opt/redhat
+           将/home目录复制到/opt/redhat目录下
+
+##################################################
+grep针对文本文件内容进行过滤
+
+在文本文件内容进行过滤,输出包含指定字符串的行
+  /etc/passwd系统级配置文件
+[root@localhost /]# grep root /etc/passwd
+
+• 常用命令选项
+– -v,取反匹配
+– -i,忽略大小写
+[root@localhost /]# grep -v root /etc/passwd
+[root@localhost /]# grep ROOT /etc/passwd
+[root@localhost /]# grep -i ROOT /etc/passwd
+
+• 常用的匹配模式
+– word 包含字符串word
+– ^word 以字符串word开头
+– word$ 以字符串word结尾
+
+[root@localhost /]# grep ^root /etc/passwd
+
+[root@localhost /]# grep root$ /etc/passwd
+
+[root@localhost /]# grep bash$ /etc/passwd
+
+#################################################
+vim命令行文本编辑器
+
+三个模式:
+     命令模式      插入模式(输入模式)    末行模式
+
+[root@server0 ~]# vim /opt/haxi.txt
+
+		命----i 键---->插入模式(Esc 键回到命令模式)
+		令
+		模
+		式----:  键---->末行模式(Esc 键回到命令模式)
+
+     末行模式 :wq 保存并退出
+     末行模式 :q! 强制不保存并退出
+
+###################################################
+
+
+
+
+
+
+
+
+
+
+
+
+

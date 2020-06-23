@@ -1,0 +1,264 @@
+一   真机远程管理虚拟机A
+
+虚拟化概述
+• virtualization 资源管理
+– x个物理资源 --> y个逻辑资源
+– 实现程度:完全、部分、硬件辅助(CPU)
+
+ CPU能够直接识别运算虚拟机指令
+
+虚拟机A:
+[root@svr7 ~]# lscpu | grep vmx   #查看CPU是否支持虚拟化
+
+真机查看CPU是否支持虚拟化
+[student@room9pc01 ~]$ lscpu | grep vmx
+
+####################################################
+• 虚拟化主要厂商及产品
+	VMware 		VMware Workstation、vSphere
+	Microsoft 	VirtualPC、Hyper-V
+	RedHat 		KVM、RHEV
+	Citrix 		Xen
+	Oracle 		Oracle VM VirtualBox
+
+####################################################
+二  手动安装一台有图形的虚拟机nsd01     
+  
+  操作系统为:CentOS 7.5
+  内存为:2048M
+  硬盘大小:9G 
+ cpu:1
+  虚拟名为:nsd01
+  网络类型:private1
+  软件包选择:带GUI的服务器
+  分区:自动分区
+
+ root密码设置为1     创建lisi用户密码设置为1
+####################################################
+三   针对虚拟机nsd01进行配置
+
+  1.关闭SELinux  
+[root@localhost ~]# getenforce 
+[root@localhost ~]# setenforce 0
+[root@localhost ~]# vim /etc/selinux/config 
+SELINUX=permissive
+  2.防火墙设置为trusted
+  3.设置IP地址为:192.168.4.30/24
+]# nmcli connection modify eth0       
+ ipv4.method manual ipv4.addresses 192.168.4.30/24    
+ connection.autoconnect yes
+]# nmcli connection up eth0 
+]# ifconfig | head -2
+  4.主机名:kvm.tedu.cn
+  5.构建Yum仓库,使用真机FTP最为服务端
+[root@localhost yum.repos.d]# mkdir  repo
+[root@localhost yum.repos.d]# mv  *.repo   repo
+
+###################################################
+虚拟机nsd01:安装虚拟化服务器平台
+• 主要软件包
+– qemu-kvm:为 kvm 提供底层仿真支持
+– libvirt-daemon:libvirtd 守护进程,管理虚拟机
+– libvirt-client:用户端软件,提供客户端管理命令
+– libvirt-daemon-driver-qemu:libvirtd 连接 qemu 的驱动
+– virt-manager:图形管理工具
+
+[root@kvm ~]# yum -y install qemu-kvm 
+[root@kvm ~]# yum -y install libvirt-daemon
+[root@kvm ~]# yum -y install libvirt-daemon-driver-qemu
+ 
+[root@kvm ~]# yum -y install libvirt-client 
+[root@kvm ~]# yum -y install virt-manager
+
+[root@kvm ~]# virt-manager   #图形虚拟系统管理器
+
+####################################################
+虚拟化服务:
+[root@kvm ~]# systemctl status libvirtd
+
+####################################################
+真机上进行虚拟机管理:             
+virsh命令工具介绍
+• 查看KVM节点(服务器)信息
+– virsh nodeinfo
+• 列出虚拟机
+– virsh list [--all]
+• 查看指定虚拟机的信息
+– virsh dominfo 虚拟机名称
+• 将指定的虚拟机设为开机自动运行
+– virsh autostart [--disable] 虚拟机名称
+• 强制关闭指定的虚拟机
+– virsh destroy 虚拟机名称
+• 运行|重启|关闭指定的虚拟机
+– virsh start  虚拟机名称
+
+###################################################
+xml配置文件(虚拟机描述文件)
+
+默认存放路径:
+[student@room9pc01 ~]$ ls /etc/libvirt/qemu
+
+输出虚拟机xml文件内容
+[student@room9pc01 ~]$ virsh dumpxml nsd01 | less
+   
+   虚拟机名称:  <name>nsd01</name>
+  <uuid>cf4e78cb-65bb-48df-a84b-56741a470fcb</uuid>
+  <source file='/var/lib/libvirt/images/nsd01.qcow2'/>
+   网卡MAC地址:网卡唯一编号<mac address='52:54:00:20:37:74'/>
+
+
+###################################################
+一台KVM虚拟机的组成
+ – xml配置文件:定义虚拟机的名称、UUID、CPU、内
+存、虚拟磁盘、网卡等各种参数设置
+默认路径:/etc/libvirt/qemu
+
+ – 磁盘镜像文件:保存虚拟机的操作系统及文档数据,
+镜像路径取决于xml配置文件中的定义
+默认路径:/var/lib/libvirt/images/
+
+真机:手动创建一个虚拟机abc01
+1.创建虚拟机磁盘镜像文件
+]$ cd  /var/lib/libvirt/images/
+]$ cp  .node_tedu.qcow2       abc01.qcow2
+
+2.创建虚拟机xml配置文件
+]$ virsh dumpxml nsd01 > /etc/libvirt/qemu/abc01.xml
+]$ ls /etc/libvirt/qemu
+]$ ls -l /etc/libvirt/qemu/abc01.xml 
+]$ vim /etc/libvirt/qemu/abc01.xml
+    虚拟机名称:  <name>abc01</name>
+
+  <uuid>删除整行内容,如果删多了按u进行撤销
+
+  <source file='/var/lib/libvirt/images/abc01.qcow2'/>
+
+  <mac address='52:54:00:20:37:74'/> 删除整行内容
+
+3.导入虚拟机信息
+]$ virsh define /etc/libvirt/qemu/abc01.xml 
+
+]$ virsh list --all
+]$ virsh start abc01
+]$ virsh list
+
+###################################################
+手动创建虚拟机:
+1.创建新的虚拟机磁盘文件
+2.导出虚拟机xml配置文件
+]$ virsh dumpxml nsd01 > /etc/libvirt/qemu/abc01.xml
+]$ vim /etc/libvirt/qemu/abc01.xml
+    虚拟机名称:  <name>abc01</name>
+  <uuid>删除整行内容,如果删多了按u进行撤销
+  <source file='/var/lib/libvirt/images/abc01.qcow2'/>
+  <mac address='52:54:00:20:37:74'/> 删除整行内容
+
+3.导入虚拟机信息
+]$ virsh define /etc/libvirt/qemu/abc01.xml 
+
+##################################################
+三合一的命令:导出xml配置文件      修改    导入
+
+1.创建一个虚拟机磁盘文件
+]$ cd /var/lib/libvirt/images/
+]$ cp .node_tedu.qcow2      abc02.qcow2
+
+2.三合一的命令:导出xml配置文件      修改    导入
+[student@room9pc01 /]$ virsh edit nsd01
+    虚拟机名称:  <name>abc02</name>
+  <uuid>删除整行内容,如果删多了按u进行撤销
+  <source file='/var/lib/libvirt/images/abc02.qcow2'/>
+  <mac address='52:54:00:20:37:74'/> 删除整行内容
+
+[student@room9pc01 /]$ virsh list --all
+[student@room9pc01 /]$ virsh start  abc02
+
+###################################################
+虚拟机命令行的删除
+[student@room9pc01 /]$ virsh list 
+[student@room9pc01 /]$ virsh destroy abc02  #强制关机
+域 abc02 被删除
+
+[student@room9pc01 /]$ virsh list --all
+[student@room9pc01 /]$ virsh undefine abc02  #取消定义
+域 abc02 已经被取消定义
+
+]$ virsh list --all
+]$ cd /var/lib/libvirt/images/
+]$ ls abc02.qcow2   
+]$ rm -rf abc02.qcow2   #删除磁盘文件
+]$ ls
+##################################################
+COW(Copy On Write)机制  写时复制
+
+• 虚拟机的磁盘镜像文件格式
+	特点\类型 		RAW		   QCOW2
+	KVM默认 		否 			是
+	I/O效率 		高 			较高
+	占用空间 		大 			小
+	压缩 			不支持 		支持
+	后端盘复用 	不支持 		支持
+	快照 			不支持 		支持
+
+– 直接映射原始盘的数据内容
+– 当前端盘的数据有修改时,在修改之前自动将原始盘的旧数据存入前端盘
+– 对前端盘的修改不回写到原始盘
+
+ 前端盘大小最好比原始盘大或相等
+
+1.基于原始盘.node_tedu.qcow2生成前端盘test.qcow2  
+]$ cd /var/lib/libvirt/images/
+]$ qemu-img create  -f qcow2   -b .node_tedu.qcow2   test.qcow2 10G
+
+]$ qemu-img info test.qcow2   #查看磁盘文件信息
+
+2.修改虚拟机xml文件内容
+]$ virsh edit nsd01
+     虚拟机名称:  <name>test</name>
+   <uuid>删除整行内容,如果删多了按u进行撤销
+   <source file='/var/lib/libvirt/images/test.qcow2'/>
+   <mac address='52:54:00:20:37:74'/> 删除整行内容
+
+]$ virsh  start test
+]$ virsh  list  --all   
+
+###################################################
+离线访问虚拟机:虚拟机关机状态,直接修改磁盘文件里面的数据
+
+]$ guestmount -a /var/lib/libvirt/images/tedu_node09.img  -i /home/student/nsdfile/
+
+##################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

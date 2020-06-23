@@ -1,0 +1,138 @@
+*************************************************CLOUD*DAY04**************************************************
+一 : Docker介绍
+			Docker 是完整的一套容器管理系统
+			Docker 不是虚拟化,没有系统
+	优点:	比虚拟化简洁高效
+			共享库和程序
+			不需要安装系统
+	缺点: 	隔离没虚拟化强
+			共用Linux内核,安全性有缺陷
+			监控容器和容器排错难
+			SELinux难驾驭
+			
+二 : 部署Docker
+	2.1安装前准备: 	
+		需要64位系统
+		RHEL6.5以上,推荐7
+		关闭防火墙(会接管防火墙)
+		Docker软件在RHEL7-extras.iso中,先挂载到ftp上
+			mount -t iso9660 -o ro,loop RHEL7-extras.iso  /var/ftp/extras/
+		
+	2.2安装Docker:
+		[root@31 ~]vim /etc/yum.repos.d/local.repo			//添加yum源
+			[extras]
+			name=extras
+			baseurl=ftp://192.168.1.254/extras
+			enabled=1
+			gpgcheck=0
+
+		[root@31 ~]yum -y install docker		//需要修改yum源,添加ftp目录
+		[root@31 ~]ifconfig					//启动后会对多出docker0网卡
+		[root@31 ~]systemctl start docker
+		[root@31 ~]systemctl enable docker
+		[root@31 ~]ifconfig
+
+	2.3 Docker镜像
+				镜像不一定要有系统,但一定要有数据
+				在Docker中容器是基于镜像启动的
+				镜像采用分层设计,使用快照的COW技术,确保不丢失数据
+		[root@31 ~]# docker images		//查看当前系统有什么镜像
+		[root@31 ~]# docker search busybox		//查找busybox镜像  docker search 查找镜像
+		[root@31 ~]# docker pull docker.io/busybox			//下载镜像
+		[root@31 ~]# docker images
+			:(相当于文件路径)  TAG  标签(相当于文件名)         IMAGE ID            CREATED             SIZE
+			docker.io/busybox             latest(默认标签)              db8ee88ad75f        2 weeks ago         1.224 MB
+		[root@31 ~]# docker save docker.io/busybox:latest -o busybox.tar
+					//导出镜像(备份)  格式:  docker save REPOSITORY:latest-o 文件名
+		[root@32 ~]# docker load -i busybox.tar		//导入镜像(恢复)
+		[root@32 ~]# docker images
+			REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+			docker.io/busybox   latest              db8ee88ad75f        2 weeks ago         1.224 MB
+			
+		[root@room9pc01 ~]# cd  /linux-soft/04/docker
+		[root@room9pc01 docker]# scp centos.tar nginx.tar redis.tar ubuntu.tar root@192.168.1.32:/root/		//拷贝镜像
+		   19  docker load -i ubuntu.tar 		//恢复镜像
+		   20  docker load -i nginx.tar 
+		   21  docker load -i centos.tar 
+		   22  docker load -i redis.tar 
+		   23  docker images
+		
+		2.4 镜像基本操作
+			[root@31 ~]# docker run -it docker.io/centos:latest /bin/bash		//创建 并 启动centos 镜像
+							//要看镜像内容启动,有的有操作系统,有的只是个服务
+						
+			容器内运行的程序,物理机能查到,而虚拟机不可以		
+				[root@1476e1688a9f /]# sleep 10000
+				[root@31 ~]# ps -ef | grep sleep
+				root     25324 25271  0 14:31 pts/1    00:00:00 sleep 10000		//物理机可杀掉此进程
+			命令列表:
+				docker  images 				//查看镜像列表
+					[root@32 ~]# docker images
+
+				docker  history	 镜像名		//查看镜像制作历史
+					[root@32 ~]# docker history centos
+					
+				docker  inspect	 镜像名		// 查看镜像底层信息
+					[root@32 ~]# docker inspect centos
+					
+				docker  pull					//下载镜像
+					[root@32 ~]# docker pull docker.io/busybo
+					
+				docker  push					//上传镜像
+					
+				docker	  rmi					//删除本地镜像
+					[root@32 ~]# docker rmi docker.io/nginx
+					[root@docker1 docker]# docker rmi nginx  //nginx为镜像名,启动容器时删除镜像会失败，先删除容器,再删除镜像
+					
+				docker	  save					//镜像另存为tar包
+					[root@32 ~]# docker save docker.io/busybox:latest -o busybox.tar
+				
+				docker  load					//使用tar包导入镜像
+					[root@32 ~]# docker load -i nginx.tar
+					
+				docker  search				//搜索镜像
+					[root@32 ~]# docker search centos
+					
+				docker  tag					//修改镜像名称和标签
+					[root@32 ~]# docker tag docker.io/centos:latest nginx:aaa
+				[root@docker1 docker]# docker ps -qa		//a所有  ,q只显示id,显示所有的容器,包括没有启动的
+		
+		2.5 Docker基本操作
+					循环删除  docker  rm $(docker ps -qa)		//删除所有容器
+					[root@0f ~]# yum -y install  vim net-tools iproute psmisc bash-completion
+								//安装vim  ifconfig IP命令 pstree tab键常用命令							
+			1) 关闭容器
+				[root@docker1 docker]# docker stop 0f   //0f为容器ID
+		
+			2) 启动容器
+				[root@docker1 docker]# docker start 0f	
+			
+			3) 重启容器
+				[root@docker1 docker]# docker restart 0f
+			
+			4) 删除容器(运行中删除不掉，先关闭容器)
+				[root@docker1 docker]# docker rm 0f  //删除失败
+					Error response from daemon: 
+				[root@docker1 docker]# docker stop 0f   //关闭容器
+				[root@docker1 docker]# docker rm 0f         //删除成功
+				[root@docker1 docker]# docker  rm $(docker stop 0f)		//或者这一条命令就行
+			5) 连接容器attach|exec	(attach不杀死上帝进程退出用 Ctrl+p 后按q)
+				[root@docker1 docker]# docker attach  0f		//exit后会关闭容器
+				[root@docker1 docker]# docker exec -it 0f /bin/bash		//exit不会关闭容器
+				
+			6) 查看容器底层信息
+				[root@docker1 docker]# docker  inspect  0f		//查看容器底层信息
+							
+			7) 查看容器进程列表 
+				[root@docker1 docker]# docker top 0f        //查看容器进程列表 
+			
+
+			
+			
+	
+
+
+
+
+
+

@@ -1,0 +1,398 @@
+ACL权限(策略)
+
+acl策略的作用
+• 文档归属的局限性
+– 任何人只属于三种角色:属主、属组、其他人
+– 无法实现更精细的控制
+
+• acl访问策略
+– 能够对个别用户、个别组设置独立的权限
+– 大多数挂载的EXT3/4、XFS文件系统默认已支持
+
+
+设置acl访问控制策略
+• 使用 getfacl、setfacl 命令
+– getfacl 文档...
+– setfacl [-R] -m u:用户名:权限类别     文档...
+– setfacl [-R] -m g:组名:权限类别       文档...
+– setfacl [-R] -b      文档...                #删除所有ACL策略
+– setfacl [-R] -x u:用户名    文档...     #删除指定ACL策略
+
+
+让lisi用户可以读取/etc/shadow文件内容,您有几种办法  
+   1.利用其他用户
+      chmod  o+r   /etc/shadow
+   2.利用所属组
+      chown :lisi  /etc/shadow
+      chmod  g+r   /etc/shadow
+   3.利用所有者
+      chown  lisi  /etc/shadow
+      chmod  u+r   /etc/shadow
+   4.利用ACL策略
+      setfacl  -m u:lisi:r  /etc/shadow
+
+
+[root@server0 ~]# mkdir /nsd01
+[root@server0 ~]# chmod o=--- /nsd01
+[root@server0 ~]# ls -ld /nsd01
+
+[root@server0 ~]# su - student
+[student@server0 ~]$ cd /nsd01
+-bash: cd: /nsd01: Permission denied
+[student@server0 ~]$ exit
+logout
+[root@server0 ~]# setfacl -m  u:student:rx  /nsd01
+[root@server0 ~]# getfacl /nsd01   #查看ACL策略
+[root@server0 ~]# su - student
+[student@server0 ~]$ cd /nsd01
+[student@server0 nsd01]$ pwd
+
+#####################################################
+
+[root@server0 ~]# mkdir /nsd02
+[root@server0 ~]# setfacl -m u:student:rwx /nsd02
+[root@server0 ~]# setfacl -m u:dc:rx /nsd02
+[root@server0 ~]# setfacl -m u:lisi:rx /nsd02
+[root@server0 ~]# setfacl -m u:zhangsan:rwx /nsd02
+
+[root@server0 ~]# getfacl /nsd02
+[root@server0 ~]# setfacl -x u:dc  /nsd02   #删除指定ACL
+[root@server0 ~]# getfacl /nsd02
+
+[root@server0 ~]# setfacl -b /nsd02  #删除所有ACL策略
+[root@server0 ~]# getfacl /nsd02
+
+###################################################
+设置黑名单
+[root@server0 ~]# mkdir /public            
+[root@server0 ~]# chmod ugo=rwx /public
+[root@server0 ~]# ls -ld /public
+
+[root@server0 ~]# setfacl -m u:lisi:--- /public
+[root@server0 ~]# getfacl /public
+
+[root@server0 ~]# su - lisi
+[lisi@server0 ~]$ cd /public/
+-bash: cd: /public/: Permission denied
+[lisi@server0 ~]$ ls /public/
+ls: cannot open directory /public/: Permission denied
+[lisi@server0 ~]$ exit
+
+###################################################
+软件包管理
+
+一 零散软件管理
+1.前提具备软件包
+
+2.虚拟机classroom搭建Web服务器,共享RHEL7.0光盘所有内容
+
+  Web服务:提供网页内容的服务
+
+3.访问虚拟机classroom网页
+   真机利用火狐浏览器:   classroom.example.com
+
+classroom.example.com/content/rhel7.0/x86_64/dvd/
+
+4.下载软件包到虚拟机server:
+• 使用wget下载工具
+– wget 软件包的URL网址
+– wget 软件包的URL网址   -O  /目录路径/新文件名
+
+   Packages目录中
+   在火狐浏览器中,按键盘  Ctrl + f  进行当前页面搜索
+
+[root@server0 ~]# wget   软件包的网络路径
+[root@server0 ~]# wget  http://classroom.example.com/content/rhel7.0/x86_64/dvd/Packages/vsftpd-3.0.2-9.el7.x86_64.rpm
+
+[root@server0 ~]# ls 
+
+
+使用rpm命令管理软件
+• RPM Package Manager,RPM包管理器
+– rpm -q   软件名...
+– rpm -ivh 软件名-版本信息.rpm...
+– rpm -e   软件名...
+
+1 查询软件是否安装
+[root@server0 ~]# rpm -q firefox
+[root@server0 ~]# rpm -q zip
+
+[root@server0 ~]# rpm -q hostname   
+[root@server0 ~]# rpm -q vsftpd   #查询软件软件安装
+
+[root@server0 ~]# rpm -q haha
+
+2.安装软件包
+[root@server0 ~]# rpm -q vsftpd  
+未安装软件包 vsftpd 
+
+]# rpm -ivh /root/vsftpd-3.0.2-9.el7.x86_64.rpm 
+
+[root@server0 ~]# rpm -q vsftpd
+ 
+[root@server0 ~]# rpm -e vsftpd    #卸载
+[root@server0 ~]# rpm -q vsftpd    #查询是否卸载成功
+未安装软件包 vsftpd 
+[root@server0 ~]# 
+
+补充内容:
+[root@server0 ~]# rpm -ql vsftpd   #已安装软件的清单
+
+了解:导入红帽签名信息
+]# wget http://classroom.example.com/content/rhel7.0/x86_64/dvd/RPM-GPG-KEY-redhat-release
+
+]# ls
+
+]# rpm --import /root/RPM-GPG-KEY-redhat-release 
+
+]# rpm -e vsftpd
+]# rpm -ivh /root/vsftpd-3.0.2-9.el7.x86_64.rpm 
+
+##################################################
+常见报错信息:
+]# rpm -ivh /root/bind-chroot-9.9.4-14.el7.x86_64.rpm 
+错误：依赖检测失败：
+	bind = 32:9.9.4-14.el7 被 bind-chroot-32:9.9.4-14.el7.x86_64 需要
+
+#################################################
+Yum软件包仓库:自动解决依赖关系安装软件
+
+构建Yum服务
+
+服务:自动解决依赖关系安装软件
+
+服务端:  1.众多的软件包   2.仓库数据文件  3.构建FTP或Web服务
+                   都在光盘内容里
+
+           虚拟机classroom:构建Web服务,共享光盘所有内容
+
+
+客户端: 虚拟机server 指定服务端位置
+    书写配置文件: /etc/yum.repos.d/*.repo
+    错误的文件会影响正确的配置文件
+[root@server0 /]# rm -rf /etc/yum.repos.d/*
+[root@server0 /]# vim  /etc/yum.repos.d/dvd.repo
+ [rhel7]                #仓库标识
+ name=rhel7.0           #仓库描述信息
+ baseurl=http://classroom.example.com/content/rhel7.0/x86_64/dvd/             #指定服务端位置
+ enabled=1              #是否启用本文件
+ gpgcheck=0             #是否检测软件包的红帽签名
+
+[root@server0 /]# yum repolist   #显示仓库基本信息
+
+Yum仓库的使用:
+[root@server0 /]# yum -y install httpd    
+[root@server0 /]# yum -y install sssd
+[root@server0 /]# yum -y install gcc
+[root@server0 /]# yum -y install system-config-kickstart
+[root@server0 /]# yum -y install tftp-server
+
+卸载软件包:
+[root@server0 /]# yum remove httpd
+[root@server0 /]# yum remove gcc
+[root@server0 /]# yum remove sssd
+
+清空Yum缓存:
+[root@server0 /]# yum repolist 
+[root@server0 /]# yum clean all   #清空Yum缓存
+[root@server0 /]# yum repolist 
+#################################################
+升级内核
+
+1.下载新的内核
+[root@server0 ~]# wget http://classroom.example.com/content/rhel7.0/x86_64/errata/Packages/kernel-3.10.0-123.1.2.el7.x86_64.rpm
+
+[root@server0 ~]# ls
+
+2.查看当前系统内核版本
+[root@server0 ~]# uname -r
+ 3.10.0-123.el7.x86_64
+
+3.安装新的内核软件包
+]# rpm -ivh /root/kernel-3.10.0-123.1.2.el7.x86_64.rpm 
+
+4.重启虚拟机server验证:
+[root@server0 ~]# reboot 
+Connection to 172.25.0.11 closed by remote host.
+Connection to 172.25.0.11 closed.
+
+[student@room9pc01 ~]$ gos
+[root@server0 ~]# uname -r
+3.10.0-123.1.2.el7.x86_64
+[root@server0 ~]# 
+####################################################
+分区规划及使用
+
+  扇区默认的大小512字节
+
+•  识别硬盘 => 分区规划 => 格式化 => 挂载使用
+     毛坯楼层 => 打隔断 => 装修  =>入驻
+
+一  识别硬盘
+[root@server0 ~]# lsblk               
+NAME    SIZE  TYPE MOUNTPOINT
+vda     10G   disk 
+└─vda1   10G   part /
+vdb      10G   disk 
+
+[root@server0 ~]# ls /dev/vdb
+
+关机添加一块新的硬盘60G硬盘
+[root@server0 ~]# poweroff 
+Connection to 172.25.0.11 closed by remote host.
+Connection to 172.25.0.11 closed.
+[student@room9pc01 ~]$ gos
+[root@server0 ~]# lsblk 
+[root@server0 ~]# ls   /dev/vdc
+
+二  分区规划 
+
+     分区模式: 
+     MBR主引导记录的分区模式
+         – 最大支持容量为 2.2TB 的磁盘
+         – 1~4个主分区,或者 3个主分区+1个扩展分区(n个逻辑分区)
+         – 扩展分区不能格式化
+
+• 修改硬盘的分区表
+[root@server0 ~]# fdisk /dev/vdb
+  n 创建新的分区----->回车----->回车---->回车----->在last结束时 +2G
+  p 查看分区表
+  n 创建新的分区----->回车----->回车---->回车----->在last结束时 +1G
+  d 删除分区
+  w 保存并退出 
+
+[root@server0 ~]# lsblk 
+[root@server0 ~]# ls  /dev/vdb[1-2]
+
+   /dev/sda5设备表示的含义:
+                     第一块SCSI接口的硬盘,第5个分区
+                     第一块SCSI接口的硬盘,第1个逻辑分区
+
+三  格式化:赋予空间文件系统的过程               
+
+     文件系统:空间存储数据的规则
+  
+    Windows: NTFS   FAT32
+
+    Linux:  ext4(RHEL6)   xfs(RHEL7)
+
+[root@server0 ~]# mkfs.ext4 /dev/vdb1  #格式化ext4文件系统
+[root@server0 ~]# blkid /dev/vdb1      #查看分区文件系统
+
+[root@server0 ~]# mkfs.xfs /dev/vdb2   #格式化xfs文件系统
+[root@server0 ~]# blkid /dev/vdb2      #查看分区文件系统
+
+
+
+四 挂载使用
+[root@server0 ~]# mkdir /mypart1
+[root@server0 ~]# mount /dev/vdb1 /mypart1
+[root@server0 ~]# df -h  #查看正在挂载的设备,使用情况
+
+[root@server0 ~]# mkdir /mypart2
+[root@server0 ~]# mount /dev/vdb2  /mypart2
+[root@server0 ~]# df -h  #查看正在挂载的设备,使用情况
+
+五  开机自动挂载
+
+• 配置文件 /etc/fstab 的记录格式
+   设备路径       挂载点        类型        参数         备份标记    检测顺序
+
+[root@server0 ~]# vim  /etc/fstab  
+ #命令模式 按 o可以另起新的一行进入 插入模式 
+.......
+/dev/vdb1  /mypart1  ext4   defaults  0 0
+/dev/vdb2  /mypart2  xfs    defaults  0 0
+
+[root@server0 ~]# umount /mypart1
+[root@server0 ~]# umount /mypart2
+[root@server0 ~]# df -h
+[root@server0 ~]# mount -a
+   检测/etc/fstab开机自动挂载配置文件,格式是否正确
+   检测/etc/fstab中,书写完成,但当前没有挂载的设备,进行挂载
+[root@server0 ~]# df -h
+
+六 综合分区
+综合分区，/dev/vdb继续分区
+最终有3个主分区，分别为2G、1G、1G
+   创建扩展分区 --->  两个逻辑分区，分别为1G、1G
+[root@server0 ~]# fdisk  /dev/vdb
+   p 查看分区表
+   n 创建主分区----->回车----->回车---->回车----->在last结束时 +1G
+   p 查看分区表
+   n 创建扩展分区 
+          ----->回车---->起始回车----->结束回车   将所有空间给扩展分区
+   p 查看分区表
+   n 创建逻辑分区----->起始回车------>结束+1G
+   n 创建逻辑分区----->起始回车------>结束+1G
+   p 查看分区表
+   w 保存并退出
+[root@server0 ~]# partprobe   #刷新分区表
+[root@server0 ~]# lsblk 
+
+####################################################
+总结：
+1.识别硬盘　lsblk
+2.分区规划    fdisk
+3.刷新分区表　　partprobe
+4.进行格式化　　mkfs.xfs  mkfs.ext4   blkid
+5.挂载使用　mount  /etc/fstab开机自动挂载   mount -a  df -h
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

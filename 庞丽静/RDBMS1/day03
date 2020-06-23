@@ -1,0 +1,241 @@
+
+                    ******************************DBA1-DAY03**************************
+1.数据导入导出
+	检索目录
+		查看默认检索目录
+		show variables like "secure_file_priv";
+		修改检索目录
+		[root@mysql50 ~]# mkdir /myload
+		[root@mysql50 ~]# chown mysql /myload/
+		[root@mysql50 ~]# vim /etc/my.cnf
+		添加
+		secure_file_priv="/myload"
+		[root@mysql50 ~]# systemctl restart mysqld
+
+
+	数据导入:把系统文件的内容储存到表里
+		建表db3.user
+			mysql> desc user;
+			+----------+-----------+------+-----+---------+-------+
+			| Field    | Type      | Null | Key | Default | Extra |
+			+----------+-----------+------+-----+---------+-------+
+			| name     | char(50)  | YES  |     | NULL    |       |
+			| password | char(1)   | YES  |     | NULL    |       |
+			| uid      | int(11)   | YES  |     | NULL    |       |
+			| gid      | int(11)   | YES  |     | NULL    |       |
+			| comment  | char(150) | YES  |     | NULL    |       |
+			| homedir  | char(150) | YES  |     | NULL    |       |
+			| shell    | char(100) | YES  |     | NULL    |       |
+			+----------+-----------+------+-----+---------+-------+
+			7 rows in set (0.00 sec)
+		导入数据
+		mysql> load data infile "/myload/passwd" into table db3.user fields terminated by ":"    lines terminated by "\n";
+		添加ID字段更易查看
+		mysql> alter table db3.user add id int primary key auto_increment first;
+		
+
+	数据导出:把表记录保存到系统文件里
+	命令 mysql>  SQL查询命令  into outfile "目录/文件名"; 	//基本格式
+		不指定以什么分割:
+			mysql> select * from user where id<=5 into outfile "/myload/user.txt";
+
+		打开导出的文件:
+			mysql> system cat  /myload/user.txt;
+			1	root	x	0	0	root	/root	/bin/bash
+			2	bin	x	1	1	bin	/bin	/sbin/nologin
+			3	daemon	x	2	2	daemon	/sbin	/sbin/nologin
+			4	adm	x	3	4	adm	/var/adm	/sbin/nologin
+			5	lp	x	4	7	lp	/var/spool/lpd	/sbin/nologin
+
+		以"###"分割列,"?"分隔行导出文件:
+		mysql> select * from user where id<=5 into outfile "/myload/user2.txt" 
+			   >fields terminated by "###" 
+			   >lines terminated by "?";
+		打开导出的文件:
+		mysql> system cat  /myload/user2.txt;
+			1###root###x###0###0###root###/root###/bin/bash?2###bin###x###1###1###bin###/
+			bin###/sbin/nologin?3###daemon###x###2###2###daemon###/sbin###/sbin/nologin?
+			4###adm###x###3###4###adm###/var/adm###/sbin/nologin?
+			5###lp###x###4###7###lp###/var/spool/lpd###/sbin/nologin?mysql> 
+
+#######################################################################################
+
+2.管理表记录
+	插入表记录   insert into  表名  values(字段值列表);
+		全部插入一次:
+		mysql> insert into db3.user 
+			 - > values
+			-  >(22,"bob","x",2000,2000,"test user","/home/test","/bin/bash");
+		全部插入多次:
+		mysql> insert into db3.user 
+			 - > values
+			 - >(22,"bob","x",2000,2000,"test user","/home/test","/bin/bash");
+			 - >(23,"haha","x",2001,2001,"test user","/home/test","/bin/bash");
+			 - >(24,"dcc","x",2002,2002,"test user","/home/test","/bin/bash");
+		个别字段插入一次:
+		mysql> insert into db3.user 
+	  		 - >  values(name)
+			 - > ("licy");
+		个别字段插入多次:
+		mysql> insert into db3.user 
+	  		 - >  values(name)
+	 		 - > ("jeck"),
+			 - > ("licy");
+
+	查询表记录   select  * from  库.表 where 条件表达式;
+		mysql> select name,shell from db3.user where id <=2;
+		mysql> select * from db3.user where id<=2;
+
+	更新表记录   update  库.表  set 字段名=值	where 条件表达式;
+		mysql> update db3.user set password="a",comment="student";	//批量修改
+		mysql> update db3.user set password="a",comment="student"	//按条件修改
+			-> where id=11;
+
+	删除表记录   delete  from  库.表;
+		mysql> delete from db3.user where id>=25;	//将大于等于25的行删除
+		mysql> delete from db3.user where id=18;	//将18行删除
+		mysql> delete from db3.user;		//将表删除
+
+####################################################################################
+
+3.匹配条件
+	3.1 基本匹配条件  (select,update,delete)
+		数值比较 
+		    		=   >   >=   <   <=   !=(不等于)     //比较数值类型
+			mysql> select name from db3.user where id>15; 	//输出id大于15的名字
+			mysql> select name from db3.user where uid=gid; 	//输出uid等于gid的名字
+			mysql> select name,uid from db3.user where id<10; 	//输出id大于15的名字,uid
+
+		字符比较
+				= 相等   != 不相等  is null 空   is not null 非空
+			mysql> insert into db3.user(name) values(null),(NULL),(""),("null");//添加字段
+			mysql> select name,uid from db3.user where shell !="/sbin/nologin";
+			mysql> select name from db3.user where name = comment; //查询name等于comment字段的
+			mysql> select name,uid from db3.user where shell is not null;	//非空查询
+			mysql> select id,name from db3.user where name is null;		//查询空值
+
+		逻辑匹配(多个判断条件)   (或且非)
+				逻辑与  and 或&&   多个条件同时成立
+				逻辑或  or 或 ||    多个条件某一个条件成立即可
+				逻辑非   ! = 	     取反
+			mysql> select name,uid from db3.user where name="root" and uid=0;	//uid和name都相等的
+			mysql> select name,uid from db3.user where name="root" or uid=1;	//uid为1,或name为root
+
+		范围内匹配
+				in(值列表)   		在....里....
+			mysql> select name from db3.user where name in ("root","sync","bin");  //查询name在root,sync,bin之间
+
+				not in      		不在....里...
+			mysql> select name from db3.user where name not in ("root","sync","bin"); 
+						 //查询name不在root,sync,bin之间
+
+				between数字and数字		在...之间...
+			mysql> select * from db3.user where uid between 10 and 20;//在10到20之间
+
+				distinct 字段名		去重显示
+			mysql> select distinct shell from db3.user;//去重
+
+	3.2 高级匹配条件
+		模糊查询  like
+				where 字段名 like '通配符'    _  表示一个字符      %  表示0~n个字符
+			mysql> select name from db3.user where name like "____";	匹配四个字符的
+			mysql> select name from db3.user where name like "%a%";		//包含a
+			mysql> select name from db3.user where name like "__%__";	//最少4个字符
+
+		正则表达式  regexp
+				where 字段名  regexp  '正则表达式'   ^  $  .  [ ]  *　　　｜
+			mysql> select name from db3.user where name  regexp '^r';	//以r开头
+			mysql> select name from db3.user where name  regexp '^r.*t$';	//以r开头,t结尾			
+			mysql> select name from db3.user where name  regexp '^r.*t$';	//以r开头或者t结尾
+
+		四则运算(算术运算)
+				+   -   *   /   %   ()  加   减   乘   除   求模(取余)    提高优先级
+				添加字段:
+					mysql> alter table db3.user
+    					-> add system int default 80,
+   					-> add mysql int default 80,
+   					-> add age tinyint default 18 after name;
+
+			mysql> select name,age,  2019 - age csnf from db3.user where name="root";	//root出生年份
+			mysql> select name,uid from db3.user where uid%2 !=0;//uid为奇数
+			mysql> select name,uid from db3.user where uid%2 =0;//uid为偶数
+
+			mysql> select name,uid from db3.user where uid < 10;
+			mysql> update db3.user set uid=uid+1 where uid < 10;	//批量修改	
+			mysql> select name,uid from db3.user where uid < 10;
+
+			mysql> select name ,system,mysql,system+mysql zfs,(system+mysql)/2 pzf from db3.user where 				name="root";		//算平均分
+
+
+
+	3.3 操作查询结果
+		1  聚集函数 (MySQL服务内置对数据做统计的命令)
+				avg(字段名)		//平均值
+				sum(字段名)		//求和
+				min(字段名)		//最小值
+				max(字段名)		//最大值
+				count(字段名)	//值的个数
+			mysql> select max(uid) from db3.user;	//格式
+			mysql> select sum(uid) from db3.user where id>10;		//id大于10的uid之和
+
+		2  查询结果排序  order  by  字段名  asc|desc;  (升序|降序)
+			mysql> select name , uid from db3.user where uid >=10 and uid<=1000;			//对比看结果
+			mysql> select name , uid from db3.user where uid >=10 and uid<=1000	order by uid;	//默认升序
+			mysql> select name , uid from db3.user where uid >=10 and uid<=1000 order by uid desc;	//降序
+
+		3   查询结果分组   group by  字段名;
+			mysql> select shell from db3.user;
+			mysql> select shell from db3.user group by shell;		//有空值时,和去重输出不一样
+
+			mysql> select shell from db3.user where uid<=500;
+			mysql> select shell from db3.user where uid<=500 group by shell;	//有空值时,和去重输出不一样
+
+			mysql> select shell from db3.user group by shell;			//输出空值
+
+		4   查询结果过滤
+			mysql> select name from db3.user  where shell!="/bin/bash"
+    				-> having name ="bin";		//在输出结果里在过滤一遍
+
+		5   限制查询结果显示行数   limit 数字;  limit 数字1,数字2; (起始行,总行数)
+			mysql> select * from db3.user where uid <=15;	//默认输出所有航
+			mysql> select * from db3.user where uid <=15 limit 3;	//只显示前三行
+			mysql> select * from db3.user where uid <=15 limit 3,6;		//从第四行开始显示6行(  0是第一行 )
+
+4.MySQL管理工具
+		常用工具
+		mysql(命令行)  MySQL-Workbench(图形)   MySQLFront(图形) Navicat(图形) phpMyAdmin(浏览器)
+
+	1. 部署LAMP
+	2. 启动httpd服务
+	3.解压phpmyadmin包,移动到html目录
+	4.配置配置文件,指定服务器地址
+	5.浏览器访问
+		yum -y install httpd php php-mysql
+		tar -zxvf phpmyadmin
+		mv phpmyadmin /var/www/html
+		cp config.sample.inc.php config.inc.php
+		vim config.inc.php
+		17 $cfg['blowfish_secret'] = 'dc';(等号后面随便填,不能为空)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

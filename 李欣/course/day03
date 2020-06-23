@@ -1,0 +1,130 @@
+***************************************COURSE*DAY03*********************************
+一 : ELK介绍
+	1.1ELK和lnmp的关系
+		L  N  				  M 				 P  
+			K(日志可视化)   E(日志检索储存)  L(日志分析处理)
+
+	1.2 相关概念
+		Node: 			装有ES服务器的节点
+		Cluster: 		多个Node组成的集群
+		Document: 	可被搜索的基础信息单元
+		Index:			拥有相似特征的文档集合
+		Type:			一个索引中可以定义一种或多种类型
+		Filed:			ES最小单位,相当于数据每一列
+		Shard是:		索引的分片,每一个分片就是Shard
+		Reolicas:		索引的拷贝 
+
+二 : ES集群安装
+	[root@room9pc01 elk]# mkdir  /var/ftp/elk		//创建ftp目录
+	[root@room9pc01 elk]# createrepo /var/ftp/elk		//更新yum源
+	[root@es1 ~]# vim /etc/hosts		
+		192.168.1.51 es1
+		192.168.1.52 es2
+		192.168.1.53 es3
+		192.168.1.54 es4
+		192.168.1.55 es5
+
+	[root@es1 ~]# vim /etc/yum.repos.d/local.repo		//添加yum源
+		[elk]
+		name=CentOS-$releasever - elk
+		baseurl="ftp://192.168.1.254/elk"
+		enabled=1
+		gpgcheck=0
+
+	[root@es1 ~]# yum -y install java-1.8.0-openjdk  elasticsearch		//安装依赖包及软件包
+	[root@es1 ~]# vim /etc/elasticsearch/elasticsearch.yml		//修改配置文件
+	 17 cluster.name: nsd1904	  //配置集群名字	
+	 23 node.name: es1		 //当前主机名称
+	 54 network.host: 0.0.0.0		// 0.0.0.0（监听所有地址）
+	 68 discovery.zen.ping.unicast.hosts: ["es1", "es2","es3",]		//声明集群里的主机成员有谁，不需要全部写进去
+
+	[root@es1 ~]# systemctl start elasticsearch
+	[root@es1 ~]# systemctl enable elasticsearch
+	[root@es1 ~]# ss -nualtp | grep 9200
+	[root@es1 ~]# ss -nualtp | grep 9300
+
+三 : ES插件使用
+	3.1 真机共享插件
+		[root@room9pc01 elk]# scp bigdesk-master.zip  elasticsearch-kopf-master.zip 
+		elasticsearch-head-master.zip  root@192.168.1.55:/root/
+	
+	3.2 安装插件
+				head插件: ES集群的拓扑结构,并且可以通过它进行索引和节点级别的操作
+				kopf插件: 是一个Elasticsearch管理工具,提供了对ES集群操作的API
+				bigdesk插件: 集群监控工具,用来查看ES集群的各种状态
+		
+		[root@es5 bin]# ./plugin install file:///root/elasticsearch-head-master.zip 	//安装head插件
+		[root@es5 bin]# ./plugin install file:///root/bigdesk-master.zip		//安装bigdesk插件     
+		[root@es5 bin]# ./plugin install file:///root/elasticsearch-kopf-master.zip	//安装kopf插件
+		[root@es5 bin]# /usr/share/elasticsearch/bin/plugin list		//列出已安装插件
+		也可网络安装
+		[root@es5 bin]# ./plugin install ftp://192.168.1.254/elk/elasticsearch-head-master.zip
+
+四 : RESTful API
+	4.1 HTTP协议简介
+		请求行  消息报头   请求正文
+		http请求方法  GET  POST   HEAD   OPTIONS  PUT   DELETE   TRACE   CONNECT
+		ES常用:
+			PUT --增   DELETE--删   POST--改   GET--查
+	
+	4.2 RESTful API调用
+		-A  修改请求agent
+		-X  设置请求方法
+		-i  显示返回头信息
+		
+		_cat命令
+		curl http://es5:9200/_cat/		//查看所有命令
+		curl http://es5:9200/_cat/master?v			//?v显示详细信息
+		curl http://es5:9200/_cat/master?help   //?help显示帮助信息
+
+		添加数据:
+			增加数据,使用PUT方法
+			调用方式: 数据库地址/索引/类型/id值
+			[root@es5 ~]# curl -X PUT http://es5:9200/tedu/student/1 -d '		
+			> {
+			> "姓名": "dc",
+			> "爱好": "dcc",
+			> "年龄": "25"
+			> }'
+
+		修改数据:
+			修改数据,使用POST方法
+			在修改数据时必须调用_update关键字
+			调用方式:数据库地址/索引/类型/id值/_update
+			[root@es5 ~]# curl -XPOST http://es5:9200/tedu/teacher/1/_update -d '
+			> {
+			> "doc":{
+			> "年代": "唐代"
+			> }
+			> }'
+	
+		查询数据:
+			curl -X GET http://es5:9200/tedu/teacher/1
+		删除数据:
+		curl -X DELETE http://es5:9200/tedu/teacher/1
+		删除索引:
+ 		curl -X DELETE http://192.168.1.55:9200/tedu/
+		curl -X DELETE http://192.168.1.65:9200/*      //删除所有索引
+
+	4.3 批量导入数据
+		[root@es5 ~]# curl -XPOST http://es5:9200/_bulk --data-binary @logs.json		//调用_bulk关键字导入
+		[root@es5 ~]# curl -XPOST http://es5:9200/_bulk --data-binary @shakespeare.json 
+		[root@es5 ~]# curl -XPOST http://es5:9200/oo/xx/_bulk --data-binary @accounts.json
+							//因为备份文件没有索引和类型,所以要手动指定
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

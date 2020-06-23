@@ -1,0 +1,177 @@
+******************************************COURSE*DAY01**********************************************
+一 : ansible介绍
+	是IT自动化和DevOps软件,基于Python开发,批量管理机器的工具
+	自动化部署APP,自动化管理配置项,自动化持续交付,自动化云服务管理
+	两大块 : 主机集合,命令集合
+	
+二 : 安装ansible
+		要求Python 2.6或2.7版本
+		开启ssh服务
+	2.1 真机配置yum仓库
+		[student@room9pc01~]$ mkdir /var/ftp/ansible
+		[student@room9pc01 ~]$ cd /linux-soft/04
+		[student@room9pc01 ansible]$ cp * /var/ftp/ansible/
+		[student@room9pc01 ansible]$ createrepo /var/ftp/ansible/
+
+	2.2 修改主机名（容易区分，6台机器都需要修改）,及hosts文件(仅ansible修改就可以)
+		[root@ansible ~]# echo  xxx > /etc/hostname
+		[root@ansible ~]# vim  /etc/hosts
+
+	2.3 配置yum源，在管理节点ansible上面配置
+		[local]
+		name=local
+		baseurl="ftp://192.168.1.254/ansible"
+		enabled=1
+		gpgcheck=0
+		
+	2.4 安装ansible
+		[root@ansible ~]# yum -y install ansible
+		[root@ansible ~]# ansible --version
+		ansible 2.4.2.0        //显示版本说明安装成功
+		 config file = /etc/ansible/ansible.cfg				//配置文件
+		  configured module search path = [u'/root/.ansible/plugins/modules',
+		   u'/usr/share/ansible/plugins/modules']				//配置的模块搜索路径
+		  ansible python module location = /usr/lib/python2.7/site-packages/ansible		//模块位置
+		  executable location = /usr/bin/ansible				//命令位置
+		  python version = 2.7.5 (default, Apr 11 2018, 07:36:10) [GCC 4.8.5 20150623 (Red Hat 4.8.5-28)]
+
+三 : 配置ansible
+	3.1 [root@ansible ~]# vim /etc/ansible/ansible.cfg		//配置文件
+		14 inventory      = /etc/ansible/hosts		//定义主机集合(默认注释掉了)
+		61 host_key_checking = False		//(默认注释了)为True则等待输入yes,为False不需要输入yes
+		
+	3.2 [root@ansible ~]# vim /etc/ansible/hosts		//定义主机集合
+		[web]
+		web[1:2]			//多个连续的写法aaa[x:y]
+
+		[db]
+		db1
+		db2
+
+		[other]
+		cache
+	3.3 列出要执行的主机
+		[root@ansible ansible]# ansible web --list-hosts		//列出web组的主机
+		[root@ansible ansible]# ansible db,web --list-hosts		//列出web组及db组的主机
+		[root@ansible ansible]# ansible all --list-hosts		//列出所有主机
+		[root@ansible ansible]# ansible db,cache --list-hosts		//列出db组及cache主机
+
+	3.4 批量检测主机
+		[root@ansible ansible]# ansible web -m ping -k			//-k 使用交互式登录密码  ping代表ssh链接主机
+
+	3.5部署证书文件(每次登陆输密码太麻烦)
+		[root@ansible myansible]# cd /root/.ssh/
+		[root@ansible .ssh]# ssh-keygen -t rsa -b 2048 -N ''  -f key 		//创建密钥
+		[root@ansible .ssh]#  ssh-copy-id -i key.pub  主机名称
+		[root@ansible .ssh]# ansible all -m ping  //失败
+
+		[root@ansible ~ ]# vim /etc/ansible/hosts
+			[all:vars]		//指定ssh秘钥文件路径及名称
+			ansible_ssh_private_key_file="/root/.ssh/key"
+		[root@ansible .ssh]# ansible  all  -m ping    //成功
+		[root@ansible .ssh]# ssh -i key cache        //不需要输入密码,可以直接登陆
+		
+		[root@db2 ~]# vim /etc/ssh/sshd_config		//改变ssh端口客户端修改
+			17 Port 222
+		[root@db2 ~]# systemctl restart sshd		//重启
+		[root@ansible ~]# vim /etc/ansible/hosts			//修改端口
+		db2 ansible_ssh_port=222
+		[root@ansible ~]# rm -rf /root/.ansible/cp/		//清除缓存
+		[root@ansible ~]# ansible all -m ping
+
+四 : 主机定义及分组
+	[root@ansible ~]# vim /etc/ansible/hosts	
+		[app:children]		//定义分组app  里面包含web组和db组 ,格式[组名:children]
+		web
+		db
+
+	[root@ansible ~]# ansible app --list-hosts
+
+五 : 练习理解批量执行
+	5.1 ansible-doc模块 : 模块的手册,相当于shell的man帮助
+		ansible-doc  -l  //列出所有模块
+		ansible-doc  模块名   //查看帮助
+		[root@ansible ~]# ansible-doc yum		//查看yum模块帮助
+		
+	5.2 ping模块 : 测试网络连通性(ssh的),ping模块没有参数
+		ansible host-pattern -m ping
+		[root@ansible ~]# ansible all -m ping
+	
+	5.3 command模块 : 默认模块远程执行命令
+		ansible host-pattern -m command -a '[args]'		//中括号里为参数
+		[root@ansible ~]# ansible all -m command -a 'uptime'		//查看系统负载 
+		
+	5.4 shell模块 : 用法与command一样,区别是可以执行任意命令(除了交互式命令,例如vim top)
+		[root@ansible ~]# ansible web1,db2 -m shell -a 'cat /etc/passwd | grep root'
+		
+		 双引号与单引号的区别
+			[root@ansible ~]# ansible  web  -m shell -a "echo ${HOSTNAME}"
+			web1 | SUCCESS | rc=0 >>
+			ansible
+			web2 | SUCCESS | rc=0 >>
+			ansible
+
+			[root@ansible ~]# ansible  web  -m shell -a 'echo ${HOSTNAME}'
+			web2 | SUCCESS | rc=0 >>
+			web2
+			web1 | SUCCESS | rc=0 >>
+			web1
+		ansible命令式二次解析,第一次本机,第二次执行机器需要第二次解析的变量要转义(\)
+		切换目录用chdir代替cd命令
+		ansible cache -m shell -a 'chdir=/tmp  touch testfile'
+	
+			添加用户并设置密码:
+			[root@ansible ~]# ansible web1,db2 -m shell -a "useradd nb"
+			[root@ansible ~]# ansible web1,db2 -m shell -a "echo 123 | passwd --stdin nb"
+
+	5.5 script模块 : 在本地写脚本,然后使用script模块批量执行
+		添加用户wk,不能与nb在同一台主机出现	
+		[root@ansible ~]# vim user.sh	
+			#!/bin/bash
+			id nb
+			if [ $?  != 0 ];then
+				useradd wk
+				echo 456 | passwd --stdin wk
+			fi
+		[root@ansible ~]# ansible web -m script -a './user.sh'
+
+	5.6 yum模块管理软件包 : name:要安装软件包名字(多个用逗号分割)  state:动作 install ==installed remove  ==	removed
+		 service模块(启动服务) :name:服务名称 enabled : 是否开机启动yes|no state :启动started 停止stopped重启restarted
+		 				重新加载reloaded   sleep: 执行restarted,会在stop和start之间停几秒
+		 copy模块 :复制文件到远程主机 src本地文件路径    dest:远程主机绝对路径
+		[root@ansible ~]# ansible all -m copy -a 'src=/etc/resolv.conf dest=/etc/resolv.conf'	//拷贝到远程
+		[root@ansible ~]# ansible all -m copy -a 'src=/etc/yum.repos.d/ dest=/etc/yum.repos.d/'
+		[root@ansible ~]# ansible db -m yum -a 'name="mariadb-server" state=installed'	//批量安装mariadb
+		[root@ansible ~]# ansible db -m service -a 'name="mariadb" enabled="yes" \
+		 >  state="started"'			//启动
+		[root@ansible ~]# ansible db -m shell -a 'ss -nualtp | grep 3306'
+		[root@ansible ~]# vim my.cnf		//修改配置文件
+		[root@ansible ~]# ansible db -m service -a 'name="mariadb" enabled="yes" \
+		 > state="restarted"'				//重启mariadb
+
+	5.7 lineinfile模块 : 类似sed的一种行编辑替换模块
+			path:目标文件路径		regexp:正则表达式,要修改的行  line: 最终修改的结果
+		 replace模块 : path:目标文件路径		regexp:正则表达式,要修改的关键词  replace : 替换后的结果
+		 
+		[root@ansible ~]# ansible db -m lineinfile -a 'path="/etc/my.cnf" regexp="^binlog-" 
+		line="binlog-format = row"'			//修改整行,先删除后添加
+		[root@ansible ~]# ansible db -m shell -a 'grep -P "^(server|binlog-)" /etc/my.cnf'		//查看结果
+		[root@ansible ~]# ansible db -m replace -a 'path="/etc/my.cnf" 
+		regexp="row$" replace="mixed"'		//替换
+		[root@ansible ~]# ansible db -m shell -a 'grep -P "^(server|binlog-)" /etc/my.cnf'		//查看结果
+
+	5.8 setup模块 : 主要用于获取 主机信息  filter : 过滤所需信息
+		[root@ansible ~]# ansible cache -m setup -a 'filter=ansible_hostname'		
+			cache | SUCCESS => {
+				"ansible_facts": {
+					"ansible_hostname": "cache"
+				}, 
+				"changed": false
+			}
+
+
+
+
+
+
+

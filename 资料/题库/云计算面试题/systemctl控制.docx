@@ -1,0 +1,127 @@
+systemctl控制
+
+systemd介绍
+• Linux系统和服务管理器
+– 是内核引导之后加载的第一个初始化进程(PID=1)
+– 负责掌控整个Linux的运行/服务资源组合
+
+systemd
+• 一个更高效的系统&服务管理器
+– 开机服务并行启动,各系统服务间的精确依赖
+– 配置目录:/etc/systemd/system/
+– 服务目录:/lib/systemd/system/
+– 主要管理工具:systemctl
+
+对于服务的管理
+ systemctl  restart  服务名     #重起服务
+ systemctl  start    服务名     #开启服务
+ systemctl  stop     服务名     #停止服务
+ systemctl  status   服务名     #查看服务当前的状态
+ 
+ systemctl  enable   服务名      #设置服务开机自启动
+ systemctl  disable  服务名      #设置服务不开机自启动
+
+RHEL6 运行级别      200
+  
+         0：关机      
+         1：单用户模式（基本功能的实现，破解Linux密码）
+	 2：多用户字符界面（不支持网络） 
+	 3：多用户字符界面（支持网络）服务器默认的运行级别
+         4：未定义                        
+	 5：图形界面                    
+	 6：重起            
+   
+    切换运行级别：init  5
+   
+
+RHEL7 运行模式 
+
+   字符模式：multi-user.target
+   图形模式：graphical.target
+
+[root@svr7 /]# ls -l /lib/systemd/system/
+当前直接切换到图形模式
+[root@svr7 /]# systemctl isolate graphical.target
+当前直接切换到字符模式
+[root@svr7 /]# systemctl isolate multi-user.target
+
+
+查看每次开机默认进入模式
+# systemctl get-default
+multi-user.target
+
+设置永久策略，每次开机自动进入graphical.target
+# systemctl set-default graphical.target 
+# reboot 
+
+################################################
+环境变量：PATH
+
+[root@svr7 ~]# echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+
+   作用：提供命令程序搜寻的路径
+[root@svr7 ~]# vim /opt/hello.sh
+#!/bin/bash
+echo hello
+[root@svr7 ~]# chmod +x /opt/hello.sh
+
+[root@svr7 ~]# /opt/hello.sh
+hello
+
+[root@svr7 ~]# hello.sh
+bash: hello.sh: 未找到命令...
+[root@svr7 ~]# echo $PATH
+
+[root@svr7 ~]# cp /opt/hello.sh /usr/bin/
+[root@svr7 ~]# hello.sh 
+
+
+查询命令对应程序文件
+[root@svr7 /]# which date
+/usr/bin/date
+[root@svr7 /]# ls /usr/bin/date 
+
+
+
+
+#####################################################
+文件目录默认的权限
+
+  权限的掩码  umask
+[root@svr7 /]# umask                  
+0022
+[root@svr7 /]# ls -ld /nsd01
+drwxr-xr-x. 2 root root 6 1月  23 09:04 /nsd01
+[root@svr7 /]# #777 - 022 =755   #目录最大权限减去权限掩码值
+[root@svr7 /]# umask 077         #修改权限掩码值
+[root@svr7 /]# umask
+
+[root@svr7 /]# mkdir /nsd02
+[root@svr7 /]# ls -ld /nsd02
+
+[root@svr7 /]# umask 770
+[root@svr7 /]# mkdir /nsd03
+[root@svr7 /]# ls -ld /nsd03
+
+[root@svr7 /]# umask 022
+#####################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

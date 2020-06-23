@@ -1,0 +1,276 @@
+配置NFS共享
+• Network File System,网络文件系统
+– 用途:为客户机提供共享使用的文件夹
+– 协议:NFS(TCP/UDP 2049)、RPC(TCP/UDP 111)
+• 所需软件包:nfs-utils
+• 系统服务:nfs-server
+
+一  环境设置
+虚拟机server
+[root@server0 ~]# firewall-cmd --set-default-zone=trusted 
+[root@server0 ~]# firewall-cmd --get-default-zone
+虚拟机desktop
+[root@desktop0 ~]# firewall-cmd --set-default-zone=trusted 
+[root@desktop0 ~]# firewall-cmd --get-default-zone
+
+二  虚拟机server构建NFS共享
+
+1.安装nfs-utils软件包
+[root@server0 ~]# rpm -q nfs-utils
+nfs-utils-1.3.0-0.el7.x86_64
+[root@server0 ~]# 
+2.修改配置文件
+[root@server0 ~]# mkdir /nsd01              #创建共享目录
+[root@server0 ~]# echo haha > /nsd01/a.txt  #建立测试文件
+[root@server0 ~]# ls /nsd01
+
+[root@server0 ~]# vim /etc/exports
+ 文件夹路径    客户机地址(权限)  客户机地址(权限) .. ..
+/nsd01   *(ro)      #将/nsd01目录共享给所有客户端,可以只读方式访问
+
+[root@server0 ~]# systemctl restart nfs-server  #重启服务
+[root@server0 ~]# systemctl enable nfs-server  #设置开机自启动
+
+虚拟机desktop                             
+[root@desktop0 ~]# mkdir /mnt/test
+[root@desktop0 ~]# ls /mnt/test
+[root@desktop0 ~]# showmount -e 172.25.0.11  #显示服务端共享路径
+[root@desktop0 ~]# mount 172.25.0.11:/nsd01  /mnt/test/
+[root@desktop0 ~]# df -h
+
+开机自动挂载
+   _netdev:声明网络设备,Linux先部署网络所有参数,在进行挂载该设备
+
+[root@desktop0 ~]# vim /etc/fstab  
+172.25.0.11:/nsd01    /mnt/test   nfs   defaults,_netdev  0 0 
+
+[root@desktop0 ~]# umount /mnt/test/
+[root@desktop0 ~]# df -h
+[root@desktop0 ~]# mount -a
+[root@desktop0 ~]# df -h
+#########################################################
+HTTP服务基础
+
+Web通信基本概念
+• 基于 B/S (Browser/Server)架构的网页服务
+– 服务端提供网页
+– 浏览器下载并显示网页
+• Hyper Text Transfer Protocol(http),超文本传输协议
+• Hyper Text Markup Language(html),超文本标记语言
+
+
+提供Web服务的软件
+  httpd(Apache)、nginx、tomcat
+
+
+• 软件包:httpd
+• 系统服务:httpd
+• 提供的默认配置
+– Listen:监听地址:端口(80)
+– ServerName:本站点注册的DNS名称(空缺)
+– DocumentRoot:网页根目录(/var/www/html)
+
+虚拟机server:构建基本的Web服务
+1.安装httpd
+2.重启httpd服务
+]# systemctl restart httpd
+3.设置httpd服务开机自启
+4.书写一个网站内容
+]# echo '<h1>NSD1904 Web1' > /var/www/html/index.html
+]# cat /var/www/html/index.html
+
+]# firefox 172.25.0.11
+
+########################################################
+ DocumentRoot:设置存放网页文件的路径(设置网页文件根目录)
+  
+虚拟机server:
+]# mkdir /var/www/myweb
+]# echo '<h1>wo shi myweb' > /var/www/myweb/index.html
+
+]# vim /etc/httpd/conf/httpd.conf   #全文命令模式下  搜索 /Doc
+
+DocumentRoot  "/var/www/myweb"
+
+]# systemctl restart httpd
+]# firefox 172.25.0.11
+
+######################################################
+实际路径与网络路径(浏览器中输入的路径)
+
+客户端:firefox 172.25.0.11:80 ----->服务端 httpd---->主配置 DocumenRoot /var/www/myweb -----> /var/www/myweb
+
+客户端:firefox 172.25.0.11 
+服务端:/var/www/myweb
+
+客户端:firefox 172.25.0.11/abc
+服务端:/var/www/myweb/abc
+
+客户端:firefox 172.25.0.11/nsd
+服务端:/var/www/myweb/nsd
+
+DocumenRoot /var/www/myweb
+客户端:firefox 172.25.0.11/var/www/myweb
+服务端:/var/www/myweb/var/www/myweb
+
+虚拟机server
+]# mkdir /var/www/myweb/abc
+]# echo '<h1>wo shi abc' > /var/www/myweb/abc/index.html
+]# firefox 172.25.0.11/abc
+
+#########################################################
+Web访问控制,默认继承父目录访问控制
+
+访问控制的配置字段:
+
+<Directory  "/var/www">
+    Require all granted   #允许所有人访问
+</Directory>
+
+<Directory  "/var/www">
+    Require ip 172.25.0.10   #仅允许172.25.0.10访问
+</Directory>
+
+<Directory  "/var/www">
+    Require all denied   #拒绝所有人访问
+</Directory>
+#######################################################
+<Directory  "/var/www">
+    Require all denied   #拒绝所有人访问
+</Directory>
+
+<Directory  "/var/www/test">
+    Require all granted  #允许所有人访问
+</Directory>
+
+ /var/www/路径下的页面,拒绝所有人访问
+ /var/www/test路径下的页面,允许所有人访问
+ /var/www/abc路径下的页面,拒绝所有人访问
+ /var/www/abc/nsd路径下的页面,拒绝所有人访问
+
+
+
+#######################################################
+
+案例:
+修改网页文件,存放路径为/webroot
+1.创建路径写入网页文件
+]# mkdir /webroot
+]# echo '<h1>wo shi webroot' > /webroot/index.html
+]# ls /webroot/
+
+2.修改配置文件
+[root@server0 ~]# vim /etc/httpd/conf/httpd.conf 
+DocumentRoot "/webroot"
+
+<Directory   "/webroot">    #针对/webroot进行访问控制配置
+    Require  all  granted   #允许所有人访问
+</Directory>
+[root@server0 ~]# setenforce 0   #将SELinux设置宽松模式
+[root@server0 ~]# getenforce     #查看SELinux状态
+
+[root@server0 ~]# systemctl restart httpd
+[root@server0 ~]# firefox 172.25.0.11
+#########################################################
+虚拟Web主机
+– 由同一台服务器提供多个不同的Web页面
+
+• 区分方式
+– 基于域名的虚拟主机
+– 基于端口的虚拟主机
+– 基于IP地址的虚拟主机
+
+域名可以DNS解析 :
+  DNS服务器虚拟机classroom
+
+     server0.example.com
+     www0.example.com
+     webapp0.example.com
+
+• 为每个虚拟站点添加配置
+  <VirtualHost IP地址:端口>
+    ServerName 此站点的DNS名称
+    DocumentRoot 此站点的网页根目录
+  </VirtualHost>
+
+
+
+
+• 配置文件路径
+– /etc/httpd/conf/httpd.conf  主配置文件
+– /etc/httpd/conf.d/*.conf    调用配置文件
+
+
+虚拟机server
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd01.conf #调用配置文件
+<VirtualHost *:80>                   #启用虚拟Web主机功能
+   ServerName  server0.example.com   #设置访问的域名
+   DocumentRoot  /var/www/qq         #设置存放网页文件目录
+</VirtualHost>
+
+<VirtualHost *:80>                #启用虚拟Web主机功能
+   ServerName  www0.example.com   #设置访问的域名
+   DocumentRoot  /var/www/baidu   #设置存放网页文件目录
+</VirtualHost>
+           
+[root@server0 ~]# mkdir /var/www/qq /var/www/baidu
+[root@server0 ~]# echo '<h1>企鹅' > /var/www/qq/index.html
+[root@server0 ~]# echo '<h1>百度' > /var/www/baidu/index.html
+[root@server0 ~]# systemctl restart httpd
+
+[root@desktop0 ~]# firefox server0.example.com    
+[root@desktop0 ~]# firefox www0.example.com
+
+#########################################################
+ 一旦使用了虚拟Web主机功能,所有的网站都必须使用虚拟Web主机实现
+如果直接使用IP地址进行访问,默认会将第一个虚拟Web主机页面内容呈现
+
+[root@server0 ~]# vim /etc/httpd/conf.d/nsd01.conf
+<VirtualHost *:80>
+   ServerName server0.example.com
+   DocumentRoot /var/www/qq
+</VirtualHost>
+<VirtualHost *:80>
+   ServerName www0.example.com
+   DocumentRoot /var/www/baidu
+</VirtualHost>
+<VirtualHost *:80>
+   ServerName webapp0.example.com
+   DocumentRoot /var/www/myweb
+</VirtualHost>
+[root@server0 ~]# systemctl  restart httpd
+#########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,95 @@
+****************************************DBA*DAY01********************************
+数据备份与恢复
+
+			  rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm 
+  			  yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm 
+ 			  rpm -ql percona-xtrabackup-24
+
+	1. 使用innobackupex 对数做备份与恢复
+		1.1命令格式
+			[root@mysql50 ~]# innobackupex  <选项>
+		1.2常用选项
+			--user   --password      --no-timestamp			--apply-log 	--copy-back
+				用户		密码	  不用日期命名备份文件储存的子目录文件名	准备恢复数据		拷贝备份文件,恢复数据
+				--export 	import
+				导出		 导 入
+		1.3完全备份与恢复
+			[root@mysql50 ~]# innobackupex --user root --password 123456 /allbak  --no-timestamp	//完全备份
+			[root@mysql50 ~]# ls /allbak
+			[root@mysql50 ~]# scp -r /allbak/ root@192.168.4.51:/root/	//拷贝到51机器
+
+			[root@mysql51 ~]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm 
+			[root@mysql51 ~]# yum -y install percona-xtrabackup-24-2.4.7-1.el7.x86_64.rpm 
+			[root@mysql51 ~]# innobackupex --apply-log /root/allbak/	//准备恢复
+			[root@mysql51 ~]# cat /root/allbak/xtrabackup_checkpoints 	//打开文件查看
+			[root@mysql51 ~]# innobackupex --copy-back /root/allbak/	//执行拷贝命令,将数据拷贝到mysql文件夹下
+			[root@mysql51 ~]# ls -l /var/lib/mysql	//查看文件属性
+			[root@mysql51 ~]# chown -R mysql:mysql /var/lib/mysql		//修改文件权限
+			[root@mysql51 ~]# systemctl start mysqld		//启动服务进行验证
+		1.4恢复完全备份中的单张表
+			删除表空间						mysql> alter table db5.b discard tablespace;
+			导出表信息						[root@mysql50 ~]# innobackupex --apply-log --export /allbak
+			拷贝表信息文件到数据库目录下			[root@mysql50 ~]# cp /allbak/db5/b.{cfg,exp,ibd} /var/lib/mysql/db5/
+			修改表信息文件的所有者及组用户为mysql	[root@mysql50 ~]# chown mysql:mysql /var/lib/mysql/db5/b.*
+			导入表空间						mysql> alter table db5.b import tablespace;
+			删除数据库目录下的表信息文件			mysql> system rm -rf /var/lib/mysql/db5/b.{cfg,exp};
+			查看表记录						mysql> desc db5.b;	mysql> select * from db5.b;
+			
+		1.5增量备份与恢复
+			增量备份:备份上次备份后所产生的新数据
+			首备份数据(完全备份) 	[root@mysql50 ~]# innobackupex --user root --password 123456 /allbak  --no-timestamp
+			第二次备份(增量备份)	[root@mysql50 ~]# innobackupex --user root --password 123456 --incremental /new2dir --
+											incremental-basedir=/datefull --no-timestamp
+			第三次备份(增量备份)	[root@mysql50 ~]# innobackupex --user root --password 123456 --incremental /new3dir --
+											incremental-basedir=/new2dir --no-timestamp
+	
+		增量恢复:
+
+
+
+
+
+
+
+
+RDBMS1知识点总结:
+		数据库服务介绍
+		搭建mysql数据库服务器
+		数据库服务基本使用: 登录  断开 建表 建库  记录管理
+		mysql数据类型
+		修改表结构 mysql键值(index  primary key  复合主键  外键)
+		对数据进行操作: 数据导入导出,记录的增删改查 匹配条件
+		用户授权  root密码  图形工具phpmyadmin
+		数据的备份与恢复: 物理备份(cp  tar innobackupex)	逻辑备份(mysqldump  binlog)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

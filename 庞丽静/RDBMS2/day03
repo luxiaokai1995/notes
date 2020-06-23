@@ -1,0 +1,201 @@
+*********************************************************RDBMS2**DAY03******************************************************
+一 : 数据分片概述
+	1. 相关概念
+		分库/分表 :   分散存放到多台数据库服务器
+		水平分割  :  按照表中指定字段的分片规则,将表记录按行切分,分散存储  
+		垂直切割  :  将单个数据库的多个业务类型分类,分散存储到不同的数据库
+
+		Mycat  给予java中间件,为高并发环境的分布式存储提供解决方案
+	2.配置Mycat服务器
+		2.1 配置服务运行环境JDK
+			[root@mysql56 ~]# yum -y install java-1.8.0-openjdk
+			[root@mysql56 ~]# which java
+			/usr/bin/java
+			[root@mysql56 ~]# java -version
+			openjdk version "1.8.0_161"
+			OpenJDK Runtime Environment (build 1.8.0_161-b14)
+			OpenJDK 64-Bit Server VM (build 25.161-b14, mixed mode)
+			
+		2.2 安装mycat软件
+			[root@mysql56 ~]# tar -xf Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz 
+			[root@mysql56 ~]# mv mycat/ /usr/local/
+			[root@mysql56 ~]# ls /usr/local/mycat/
+			bin  catlet  conf  lib  logs  version.txt
+			
+		2.3 配置文件解析
+		server.xml	//设置连接账号及逻辑  schema.xml	//配置数据分片	rule.xml	//分片规则		*.txt		//函数调用文件
+		
+		2.4 配置mycat服务
+			2.4.1 创建连接用户
+				[root@mysql56 mycat]# vim /usr/local/mycat/conf/server.xml		//使用默认用户
+			
+			2.4.2 配置数据分片
+				[root@mysql56 mycat]# cp /usr/local/mycat/conf/schema.xml /root/		//文件重要,先备份
+				[root@mysql56 conf]# wc -l /usr/local/mycat/conf/schema.xml
+				77   /usr/local/mycat/conf/schema.xml
+				[root@mysql56 conf]# sed -i '56,77d' schema.xml		//一定按顺序,否则删的不对
+				[root@mysql56 conf]# sed -i '16,18d' schema.xml
+				[root@mysql56 conf]# sed -i '36,39d' schema.xml
+				
+					<schema>.....</schema>  定义数据分片存储的表,定义分片信息
+					name	//逻辑表  		dataNode 	//指定数据节点名		rule  	//指定使用的分片规则		type=global 		//数据不分片存储
+					<dataNode 选项=值,..../>  定义数据库服务器主机名
+					<datahost  选项=值,....> ......</datahost>  定义主机名的IP地址
+					
+			2.4.3 配置服务器
+				1 创建存储数据的库
+					[root@mysql53 mysql]# mysql -uroot -paaa123...A -e "create database db1"
+					[root@mysql54 mysql]# mysql -uroot -paaa123...A -e "create database db2"
+					[root@mysql55 mysql]# mysql -uroot -paaa123...A -e "create database db3"
+				
+				2 授权mycat服务连接用户admin
+					[root@mysql53 mysql]# mysql -uroot -paaa123...A -e 'grant all on *.* to admin@"%" identified by "aaa123...A"'
+					[root@mysql54 mysql]# mysql -uroot -paaa123...A -e 'grant all on *.* to admin@"%" identified by "aaa123...A"'
+					[root@mysql55 mysql]# mysql -uroot -paaa123...A -e 'grant all on *.* to admin@"%" identified by "aaa123...A"'
+
+				3 测试连接用户
+					[root@mysql56 conf]# mysql -h192.168.4.53 -uadmin -paaa123...A
+					[root@mysql56 conf]# mysql -h192.168.4.54 -uadmin -paaa123...A
+					[root@mysql56 conf]# mysql -h192.168.4.55 -uadmin -paaa123...A
+
+				4  启动服务
+					[root@mysql56 conf]# /usr/local/mycat/bin/mycat start	//启动服务
+					[root@mysql56 conf]# /usr/local/mycat/bin/mycat --help	//查看帮助信息
+					
+				5  连接服务器
+					[root@mysql50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+					mysql> show databases;
+					+----------+
+					| DATABASE |
+					+----------+
+					| TESTDB   |
+					+----------+
+					mmysql> show tables;
+					
+			2.4.2  分片规则 sharding-by-intfile  (枚举法)(按指定数字存储)
+			[root@mysql56 conf]#  vim /usr/local/mycat/conf/schema.xml		//在这个文件下查看分片规则
+			<table name=...     rule="sharding-by-intfile" />
+
+			[root@mysql56 conf]#  vim /usr/local/mycat/conf/rule.xml		//查看调用的文件
+			 <tableRule name="sharding-by-intfile">
+             			  <rule>
+                     			   <columns>sharding_id</columns>
+                    	   		   <algorithm>hash-int</algorithm>
+            			    </rule>
+      			 </tableRule>
+      			 
+      			 <function name="hash-int"
+                		 class="io.mycat.route.function.PartitionByFileMap">
+               			 <property name="mapFile">partition-hash-int.txt</property>		//调用的文件
+        		</function>
+
+			[root@mysql56 conf]#  vim /usr/local/mycat/conf/partition-hash-int.txt		//修改调用文件
+			10000=0
+			10010=1
+			10020=2
+			:wq
+
+			2.4.3 根据sharding-by-intfile 分片规则建表
+			mysql> create table employee(
+				    -> ID int primary key auto_increment,
+				    -> sharding_id int,
+				    -> name char(15),
+				    -> tel char(11));
+				Query OK, 0 rows affected (0.52 sec)
+			[root@mysql53 ~]# mysql -uroot -paaa123...A -e "desc db1.employee"		//连接分片服务器查看
+			mysql> insert into employee(sharding_id,name,tel) values(10000,"bob","13100000000");		//插入记录查看(全部插入也要写表头)
+			
+
+			2.4.4  分片规则  mod-long (求模法)(按余数存储)
+			[root@mysql56 conf]#  vim /usr/local/mycat/conf/schema.xml		//在这个文件下查看分片规则
+					<table name="hotnews" primaryKey="ID" autoIncrement="true" dataNode="dn1,dn2,dn3"
+                        		   rule="mod-long" />
+			[root@mysql56 conf]#  vim /usr/local/mycat/conf/rule.xml		//查看求模数字
+					<tableRule name="mod-long">
+                				<rule>
+                 				       <columns>id</columns>
+                   				       <algorithm>mod-long</algorithm>
+          				      	</rule>
+					 </tableRule>
+					 
+					 <function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+              						  <property name="count">3</property>		//求模数字默认值为3 ,不用改
+       					 </function>
+			
+				mysql> create table hotnews(
+ 					   -> id int,
+ 					   -> title char(20),
+ 					   -> comment char(200),
+ 					   -> worker char(10)
+ 					   -> );
+					Query OK, 0 rows affected (0.71 sec)
+				mysql> insert into hotnews(id,title,comment,worker) values(7,"linux","linux web","nb");
+				
+			2.4.5  不用算法(每个分片服务器都有)
+				
+				[root@mysql56 conf]#  vim /usr/local/mycat/conf/rule.xml	
+					 <table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />		//默认没修改
+				:wq	
+				
+				客户端创建表,然后使用分片服务器查看
+
+			2.4.6  在mycat服务器上添加新库,新表
+				1添加新库
+					[root@mysql56 conf]#  vim /usr/local/mycat/conf/schema.xml	
+					<user name="root">
+               					 <property name="password">123456</property>
+                				 <property name="schemas">TESTDB,GAMEDB</property>		//添加GAMEDB数据库,尽量大写
+					
+				2添加新表
+					[root@mysql56 conf]#  vim /usr/local/mycat/conf/schema.xml	
+					<mycat:schema xmlns:mycat="http://io.mycat/">
+						  <schema name="GAMEDB" checkSQLschema="false" sqlMaxLimit="100">
+            						    <table name="user" dataNode="dn1,dn2,dn3"  rule="mod-long" />		//使用求模分片规则
+            						   <table name="stuinfo" dataNode="dn1,dn2,dn3"  rule="auto-sharding-long" />		//使用枚举分片规则
+       						  </schema>
+
+					50客户端建表测试,53 54 55查看存储
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

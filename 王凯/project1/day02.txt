@@ -1,0 +1,100 @@
+资源共享
+信息传递
+增加可靠
+提高系统处理能力
+
+osi   7层
+tcp/ip  5层
+
+点对点  广域网
+星形  好实现  方便故障排查  易于扩扩展
+网状  提高可靠
+ 
+wan 广域网     lan 局域网
+
+物理层  数据链路层 网络层  传输层  应用层 
+rj-45
+双绞线
+568A
+568B
+
+cat5
+cat5e   100M
+cat6
+cat7
+
+ip  32位     十进制      跨网络的数据传递   192.168.0.1
+mac  48位     十六进制    同局域网范围内的数据传递
+全球唯一
+前24位 厂商标示
+后24位 产品的唯一编号
+fe54：00:00:00:0b
+
+单播    1对1
+组播    1对多
+广播    1对所有
+
+MAC  物理地址     硬件地址
+
+8 bit 比特     =    1 byte 字节
+
+100Mb   12+MB
+mtu  最大传输单元
+
+交换机查看MAC地址表
+Tarena-sw1#show mac-address-table
+
+windows中查看网络信息，比如mac地址使用 ipconfig  /all
+
+学习  源MAC地址
+广播  
+转发  
+更新  300秒  
+
+vlan数量 默认 允许创建  4096个    0～4095
+1000
+vlan1是默认存在的
+
+
+Switch(config)#vlan 2    //在全局配置模式下创建VLAN2
+Switch(config)#no vlan 2    //删除VLAN2
+Switch(config)# interface f0/1     //进入f0/1接口
+Switch(config-if)# switchport access vlan 2  //将接口加入vlan2
+Switch(config-if)# no switchport access vlan 2	//取消加入vlan2
+
+将多个接口添加到某个VLAN中：
+Switch(config)# interface range f0/1–10   //进入组接口模式
+
+Switch# show vlan brief   //查看vlan摘要信息
+
+提前熟悉路由器基本操作
+使用2911路由器可以测试以下配置：
+模式的切换（注意，路由器接口是千兆的 gigabitethernet 0/1），配密码，改主机名，保存，重启，清空配置等。。。
+
+
+思考：
+如何使同vlan设备互通
+
+
+trunk   中继链路，可以实现不通vlan的数据在一条链路中传递
+
+Switch(config-if)#switchport mode trunk   //配置接口为trunk模式
+
+access  接入链路  可以承载1个vlan
+trunk   中继链路  可以承载多个vlan
+
+以太通道，提高带宽，增加可靠性
+Switch(config)# interface range fastEthernet 0/1 – 2   //同时进入1口与2口
+Switch(config-if-range)#channel-group 1 mode on    //捆绑为以太通道
+
+Switch(config-if)#shutdown   //关闭接口
+Switch(config-if)#no shutdown   //开启接口
+
+Switch# show etherchannel  summary    //查看以太通道汇总信息
+
+
+
+
+
+
+

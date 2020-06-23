@@ -1,0 +1,38 @@
+&&   ||   if
+case分支,简化版本if,功能不如if强大,代码比if简洁
+
+case 变量 in
+模式1)
+    命令序列1;;
+模式2)
+    命令序列2;;
+*)
+    命令序列3
+esac
+
+########################################
+
+
+方便使用nginx的脚本
+
+#1/bin/bash 
+case $1 in
+start)
+    /usr/local/nginx/sbin/nginx;;	//开启服务
+stop)
+    /usr/local/nginx/sbin/nginx -s stop;;	//关闭服务
+re)
+    /usr/local/nginx/sbin/nginx -s stop	//先关闭
+    /usr/local/nginx/sbin/nginx;;		//后开启,重启
+status)
+    netstat -ntulp |grep -q nginx
+    [ $? -eq 0 ] && echo "服务已开启" || echo "服务未开启";;	//查询是否开启
+*)
+    echo "请输入start|stop|re|status"
+esac
+
+
+
+break	//终止循环,继续执行循环之后的任务
+continue	//终止本次循环,继续下一次循环
+exit	//直接退出脚本

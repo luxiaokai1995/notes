@@ -1,0 +1,290 @@
+案例5:编写一个批量添加用户脚本
+在 server0 上创建 /root/batchusers 脚本
+1)此脚本要求提供用户名列表文件作为参数
+2)如果没有提供参数,此脚本应该给出提示
+ Usage: /root/batchusers,退出并返回相应值
+3)如果提供一个不存在的文件,此脚本应该给出提
+示 Input file not found,退出并返回相应值
+4)新用户的登录Shell为 /bin/false,无需设置密码
+5)用户列表测试文件:
+ http://classroom.example.com/pub/materials/userlist
+
+[root@server0 ~]# vim /root/batchusers
+ #!/bin/bash
+ if  [ $# -eq 0 ];then                #判断用户是否输入参数
+  echo 'Usage: /root/batchusers' >&2
+  exit 2
+ elif [ -f $1 ];then　　　　　　　　＃判断用户输入的文件是否存在
+  for a  in $(cat $1)
+  do
+   useradd -s /bin/false $a  &> /dev/null
+   echo $a创建成功
+  done
+ else
+  echo 'Input file not found' >&2
+  exit 3
+ fi
+[root@server0 ~]# /root/batchusers  /root/userlist
+
+###########################################################
+系统安全保护
+
+SELinux安全机制
+
+• Security-Enhanced Linux
+– 美国NSA国家安全局主导开发,一套增强Linux系统安
+全的强制访问控制体系
+– 集成到Linux内核(2.6及以上)中运行
+– RHEL7基于SELinux体系针对用户、进程、目录和文件
+提供了预设的保护策略,以及管理工具
+
+• SELinux的运行模式
+– enforcing(强制)、permissive(宽松)             
+– disabled(彻底禁用)
+
+  所有状态变成disabled(彻底禁用),都要经历重启系统
+
+• 切换运行模式
+– 临时切换:setenforce 1|0
+– 固定配置:/etc/selinux/config 文件
+
+虚拟机server
+[root@server0 ~]# getenforce    #查看SELinux当前系统状态
+Enforcing
+[root@server0 ~]# setenforce 0  #修改SELinux状态,为宽松模式
+[root@server0 ~]# getenforce 
+Permissive  
+[root@server0 ~]# vim /etc/selinux/config#SELinux状态永久配置文件
+SELINUX=permissive
+
+虚拟机desktop
+[root@desktop0 ~]# getenforce 
+Enforcing
+[root@desktop0 ~]# setenforce 0
+[root@desktop0 ~]# getenforce 
+Permissive
+[root@desktop0 ~]# vim /etc/selinux/config 
+SELINUX=permissive
+##########################################################
+用户个性化配置文件
+• 影响指定用户的 bash 解释环境
+– ~/.bashrc,每次开启 bash 终端时生效
+
+全局环境配置
+• 影响所有用户的 bash 解释环境
+– /etc/bashrc,每次开启 bash 终端时生效
+
+虚拟机server0
+[root@server0 ~]# vim /home/student/.bashrc 
+alias hello='echo  hello'
+[root@server0 ~]# vim /root/.bashrc 
+alias hi='echo  hi'
+[root@server0 ~]# vim /etc/bashrc 
+alias dc='echo  dc'
+
+#######################################################
+搭建基本Web服务,提供一个网页内容
+  http协议:超文本传输协议,专用于传输页面内容
+
+服务端:虚拟机server
+1.安装httpd软件包
+[root@server0 ~]# yum -y install httpd
+2.重启httpd服务
+[root@server0 ~]# systemctl restart httpd
+[root@server0 ~]# systemctl enable httpd
+ln -s '/usr/lib/systemd/system/httpd.service' '/etc/systemd/system/multi-user.target.wants/httpd.service'
+
+3.本机测试
+[root@server0 ~]# firefox 172.25.0.11         
+
+4.书写自己的页面
+   默认存放文件文件路径:/var/www/html/
+   默认网页文件名称:index.html
+[root@server0 ~]# cat  /var/www/html/index.html
+<marquee><font  color=red><h1>NSD1904hahaxixi
+  滚动            字体颜色            标题字体
+[root@server0 ~]# 
+
+#######################################################
+搭建基本的FTP服务
+
+  FTP:文件传输协议
+
+默认FTP服务共享位置:/var/ftp/
+
+虚拟机server
+1.安装vsftpd软件
+[root@server0 ~]# yum -y install vsftpd
+2.重启vsftpd服务
+[root@server0 ~]# systemctl restart  vsftpd
+[root@server0 ~]# systemctl enable  vsftpd
+3.本机验证
+[root@server0 ~]# firefox ftp://172.25.0.11
+
+##########################################################
+防火墙策略管理
+   
+    作用:隔离,进行入站过滤
+
+ 硬件防火墙
+ 软件防火墙
+
+ firewalld服务基础
+Linux的防火墙体系
+• 系统服务:firewalld
+• 管理工具:firewall-cmd、firewall-config
+
+预设安全区域
+• 根据所在的网络场所区分,预设保护规则集
+ – public:仅允许访问本机的sshd dhcp  ping 
+ – trusted:允许任何访问
+ – block:拒绝任何来访请求(明确拒绝回应)
+ – drop:丢弃任何来访的数据包(直接丢弃不给回应,节省服务器资源)
+
+ 数据包: 源IP地址  目标IP地址   数据
+
+防火墙的判定规则
+1.查看请求数据包,中客户端来源IP地址,查看自己所有区域规则,如果某一个区域有该源IP地址的规则,则进入该区域
+
+2.进入默认区域public
+
+#######################################################
+防火墙默认区域修改
+虚拟机server
+]# firewall-cmd --get-default-zone  #查看默认区域
+虚拟机desktop
+]# ping  172.25.0.11   #可以通信
+
+虚拟机server
+]# firewall-cmd --set-default-zone=block   #修改默认区域为block
+]# firewall-cmd --get-default-zone    #查看默认区域
+虚拟机desktop
+]# ping  172.25.0.11  #不可以通信,有回应
+
+虚拟机server
+]# firewall-cmd --set-default-zone=drop  #修改默认区域为drop
+]# firewall-cmd --get-default-zone   #查看默认区域
+虚拟机desktop
+]# ping  172.25.0.11  #不可以通信,没有回应
+###########################################################
+常见的互联网协议:
+           http:超文本传输协议    默认端口:80 
+           FTP:文本传输协议   默认端口:21
+           https:安全的超文本传输协议   默认端口:443
+           DNS:域名解析协议      默认端口:53
+           telnet:远程管理协议     默认端口:23
+           tftp:简单的文本传输协议   默认端口:69
+           smtp:发邮件协议    默认端口:25
+           pop3:收邮件协议    默认端口:110
+           snmp:简单的网络管理协议   默认端口:161 
+
+
+在默认区域添加协议:
+虚拟机server:
+]# firewall-cmd --set-default-zone=public  #修改默认区域为public
+]# firewall-cmd --get-default-zone 
+]# firewall-cmd --zone=public  --list-all  #查看区域详细规则
+虚拟机desktop
+]# firefox 172.25.0.11        #失败
+]# firefox ftp://172.25.0.11  #失败
+
+虚拟机server:
+]# firewall-cmd --zone=public  --list-all
+]# firewall-cmd --zone=public  --add-service=http #添加允许的协议
+]# firewall-cmd --zone=public  --add-service=ftp #添加允许的协议
+]# firewall-cmd --zone=public  --list-all
+虚拟机desktop
+]# firefox 172.25.0.11        #成功
+]# firefox ftp://172.25.0.11  #成功
+
+##########################################################
+防火墙永久策略                                                    
+
+– 永久(permanent)
+]# firewall-cmd --reload   #重新加载防火墙所有配置
+
+]# firewall-cmd --permanent --zone=public  --add-service=http
+]# firewall-cmd --permanent --zone=public  --add-service=ftp
+]# firewall-cmd --zone=public --list-all 
+
+]# firewall-cmd --reload  #重新加载防火墙所有配置
+
+]# firewall-cmd --zone=public --list-all 
+
+#########################################################
+单独拒绝虚拟机desktop的访问
+
+]# firewall-cmd --zone=block --add-source=172.25.0.10
+]# firewall-cmd --zone=block --list-all 
+
+
+#########################################################
+
+ 端口:编号    标识协议或服务 可以具备多个
+           由root指定
+
+数据包: 源IP地址   目标IP地址   端口号    数据
+
+实现本机的端口映射
+• 本地应用的端口重定向(端口1 --> 端口2)                            
+– 从客户机访问 端口1 的请求,自动映射到本机 端口2
+– 比如,访问以下两个地址可以看到相同的页面:
+  http://172.25.0.11:5423 --->  http://172.25.0.11:80
+
+虚拟机server
+]# firewall-cmd --permanent --zone=public  --add-forward-port=port=5423:proto=tcp:toport=80
+
+]# firewall-cmd --reload 
+
+]# firewall-cmd --zone=public --list-all
+
+虚拟机desktop
+]# firefox  172.25.0.11:5423 
+
+#########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

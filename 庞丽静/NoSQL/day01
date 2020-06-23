@@ -1,0 +1,120 @@
+*************************************************NoSQL*DAY01************************************************************
+NoSQL
+	-Not Only SQL不仅仅是数据库
+	-泛指非关系型数据库
+	-不需要预先定义数据库存储结构
+	-每条记录可以有不同的数据类型和字段个数
+	
+NoSQL软件
+	Memcached		Redis	MongoDB	CouchDB 	Neo4j	FlockDB
+RDBMS软件
+	MySQL		MariaDB   	Oracle		DB2  	SQL Server
+		
+一:  部署redis 软件 (redis  高性能分布式内存数据库)
+	1.   redis介绍
+	2.   安装redis
+		yum -y install gcc 
+		tar -zxf redis-4.0.8.tar.gz	//一定要先安装gcc在解压
+		make   &&   makeinstall
+		
+	3.   初始化配置redis
+		 ./utils/install_server.sh		//执行初始化设置脚本
+		 Please select the redis port for this instance: [6379] 				//端口号
+		 Please select the redis config file name [/etc/redis/6379.conf] 		//主配置文件路径及名称
+		 Please select the redis log file name [/var/log/redis_6379.log] 		//日志文件路径及名称
+		 Please select the data directory for this instance [/var/lib/redis/6379] //数据库目录
+		 Please select the redis executable path [/usr/local/bin/redis-server] 	//启动程序目录
+		 
+		 Port           : 6379                   //端口号
+		 Config file    : /etc/redis/6379.conf         //配置文件目录
+		 Log file       : /var/log/redis_6379.log      //日志目录
+		 Data dir       : /var/lib/redis/6379          //数据库目录
+		 Executable     : /usr/local/bin/redis-server  //启动程序的目录
+		 Cli Executable : /usr/local/bin/redis-cli     //命令行的连接工具
+		 Is this ok? Then press ENTER to go on or Ctrl-C to abort.  //回车完成配置
+		 Copied /tmp/6379.conf => /etc/init.d/redis_6379    //服务启动脚本
+		 
+	4.   服务管理
+		/etc/init.d/redis_6379 start 	//启动服务
+		/etc/init.d/redis_6379 stop		//停止服务
+		/etc/init.d/redis_6379 status	//查看服务状态
+		/etc/init.d/redis_6379 restart	//重新启动
+		netstat -antupl |grep :6379 //查看端口
+		
+	5.   连接服务,存取数据
+		redis-cli  	//默认连接127.0.0.1地址的 6379端口
+		set 	    key名  key值		//储存一个key值
+		mset   key名  key值 ....		//储存多个key值
+		get 	    key名				//获取key值
+		mget   key名 ...			//获取多个key值
+		keys    *	 				//显示所有key名
+		type     key名 			//查看key类型
+		exists   key名				//测试key名是否存在	
+		ttl 	     key名				//查看key生存时间(-2已过期   -1 永久存在,单位为秒)
+		expire   key名  数字		//设置key有效时间
+		move   key名   库编号		//移动key到指定库
+		select  数据库编号0-15		//切换库
+		del 		key名			//删除指定key
+		flushdb					//删除所在库的所有key
+ 		flushall 					//删除内存所有key
+ 		save 					//保存所有key到硬盘
+ 		shutdown				//停止服务
+	
+	
+二:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

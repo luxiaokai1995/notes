@@ -1,0 +1,150 @@
+LNMP(linux+nginx+mysql+php),	LAMP
+	静态
+	动态
+		web:/var/www/html
+	    	    /usr/local/nginx/html
+
+
+yum安装软件
+	nginx 
+	mariadb maria-server maria-devel
+	php php-fpm php-mysql
+
+1）启动MySQL服务
+
+[root@proxy ~]# systemctl start  mariadb           //启动服务器
+[root@proxy ~]# systemctl status mariadb           //查看服务状态
+[root@proxy ~]# systemctl enable mariadb           //设置开机启动
+
+2）启动PHP-FPM服务
+
+[root@proxy ~]# systemctl start php-fpm           //启动服务
+[root@proxy ~]# systemctl status php-fpm          //查看服务状态
+[root@proxy ~]# systemctl enable php-fpm          //设置开机启动
+
+
+实现动静分离(nginx.conf),做判断
+	如果用户访问的静态页面,则直接返回
+	如果用户访问的是php脚本,则把脚本转发给9000端口
+	location语句是匹配用户的地址栏(从域名后面开始)
+
+	location 支持正则
+		location ~ /abc {
+		}
+
+
+	php是多进程软件
+
+################################
+程序 (program)
+	-进程(process)
+		-线程(thread)
+		-线程
+	-进程
+		-线程
+################################
+
+Nginx的默认访问日志文件为/usr/local/nginx/logs/access.log
+
+Nginx的默认错误日志文件为/usr/local/nginx/logs/error.log
+
+PHP默认错误日志文件为/var/log/php-fpm/www-error.log
+
+如果动态网站访问失败，可用参考错误日志，查找错误信息
+
+使用tailf  (与tail区别,动态查看)
+
+创建新的动态页面:
+[root@proxy conf]# cd /root/lnmp_soft/php_scripts/
+[root@proxy php_scripts]# cp mysql.php  /usr/local/nginx/html/
+[root@client ~]# firefox www.a.com/mysql.php
+
+查看变化:
+mysql创建用户
+grant all on *.* to 'dc'@'1.1.1.1' identified by '123';
+
+
+####################################################
+地址重写:
+
+rewrite 旧地址 新地址 [选项]
+rewrite 旧地址 新地址 [选项];
+
+last 不再读其他rewrite 
+break 不再读其他语句，结束请求
+redirect 临时重定向
+permament 永久重定向
+
+
+
+配置默认安装,没安装的话要按升级步骤重新启用
+
+
+访问192.168.4.5/下面子页面，重定向至www.tmooc.cn/下相同的页面
+rewrite  /(.*)  www.tmooc.cn/$1;		//$1代表前面括号里的值
+
+
+
+1.安装软件  7个
+2.启动服务 nginx,php-fpm,mariadb
+3.修改配置 location ~ \.php${ }
+4.nginx -s reload
+5.firefox http://www.a.com/test.php
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

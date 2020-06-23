@@ -1,0 +1,274 @@
+版本控制软件
+
+人,文件就一个
+机器,版本有很多[自动保存所有版本]
+
+
+集中版本控制: SVN(subversion)
+
+git init /仓库名称  --bare
+
+分布式版本控制: git
+
+##################################
+全览:
+
+web1: /var/git/project(仓库)
+
+web2: git clone ip:/var/git/project
+project(工作目录)
+project/.git(本地仓库)
+
+project/新建文件a.txt
+git add .  建索引
+git commit -m "注释"  把a.txt拷贝到.git(提交本地仓库)
+
+project/新建文件a.txt(修改文件)()v2
+git add .  建索引
+git commit -m "注释"   .git (a.txt-v1 a.txt-v2 a.txt-v3)
+......
+
+git push   //提交到网络服务器
+
+git pull	//下载服务器的新版本
+
+最常用四个命令:
+git add .
+git commit
+git push
+git pull
+
+
+###########################################################
+一：部署Git服务器
+1）YUM安装Git软件。
+
+[root@web1 ~]# yum -y install git
+[root@web1 ~]# git --version		//查看版本号
+
+2)初始化一个空仓库。
+
+[root@web1 ~]# mkdir /var/git		//创建一个普通目录
+[root@web1 ~]# git init /var/git/project --bare 		初始化仓库
+[root@web1 ~]# ls /var/git/		/查看
+
+二:客户端
+1) clone克隆服务器仓库到本地
+
+[root@web2 ~]# yum -y install git	
+[root@web2 ~]# git clone root@192.168.2.100:/var/git/project 		//克隆服务器仓库
+
+2) 修改git配置
+
+[root@web2 project]# git config --global user.email "you@example.com"	//邮箱
+[root@web2 project]# git config --global user.name "Your Name"		//用户名
+[root@web2 project]# cat ~/.gitconfig 	//查看自己配置
+
+3） 本地工作区对数据进行增删改查(必须要先进入仓库再操作数据)。
+
+root@web2 project]# echo "init date" > init.txt	//创建文档
+[root@web2 project]# mkdir demo
+[root@web2 project]# cp /etc/hosts demo
+
+4） 查看仓库中数据的状态。
+
+[root@web2 project]# git status
+
+5） 将工作区的修改提交到暂存区。
+
+[root@web2 project]# git add .		//. 代表所有,可写文档名单加
+
+6) 将暂存区修改提交到本地仓库。
+
+[root@web2 project]# git commit  -m  "注释，可以为任意字符"	//提交到仓库
+[root@web2 project]# git status
+
+查看日志方法:
+git log	//查看提交日志
+git log --pretty=oneline		//在一行显示提交日志
+git log --oneline 		//查看版本码前几位
+git reflog				//查看版本码前几位
+
+Windows需要安装git和tortoiseGit
+
+
+#######################################################
+Git分支操作
+
+[root@web2 project]# git status	//查看当前工作分支
+[root@web2 project]# git branch -v	//查看当前工作分支
+[root@web2 project]# git branch hotfix	//创建后提醒分支(git branch  分支名)
+[root@web2 project]# git checkout hotfix	//切换hotfix 分支
+ 在hotfix修改代码
+[root@web2 project]# git checkout master	//切回master分支
+[root@web2 project]# git merge hotfix		//合并分支
+[root@web2 project]# git push			//提交到服务器
+
+
+#####################################################################
+
+git的几种服务器:###
+
+  SSH协议服务器（支持读写操作）
+
+1）创建基于密码验证的SSH协议服务器（web1主机操作）。
+[root@web1 ~]# git init --bare /var/git/base_ssh
+Initialized empty Git repository in /var/git/base_ssh/
+
+2)客户端访问的方式（web2主机操作）。
+[root@web2 ~]# git clone root@192.168.2.100:/var/git/base_ssh
+
+3）客户端生成SSH密钥，实现免密码登陆git服务器（web2主机操作）。
+设置免密登录:
+ssh-keygen -f /root/.ssh/id_rsa -N ''	//生成秘钥,无交互
+ssh-copy-id  192.168.2.100		//传递秘钥
+
+[root@web2 ~]# git clone root@192.168.2.100:/var/git
+
+
+
+Git协议服务器（只读操作的服务器）
+	
+1）安装git-daemon软件包（web1主机操作）。
+[root@web1 ~]# yum -y install git-daemon
+
+2）创建版本库（web1主机操作）。
+[root@web1 ~]# git init --bare /var/git/base_git
+Initialized empty Git repository in /var/git/base_git/
+
+3）修改配置文件，启动git服务（web1主机操作）。
+[root@web1 ~]# vim /usr/lib/systemd/system/git@.service
+修改前内容如下：
+ExecStart=-/usr/libexec/git-core/git-daemon --base-path=/var/lib/git 
+--export-all --user-path=public_git --syslog --inetd –verbose
+修改后内容如下：
+ExecStart=-/usr/libexec/git-core/git-daemon --base-path=/var/git 
+--export-all --user-path=public_git --syslog --inetd –verbose
+[root@web1 ~]# systemctl  start  git.socket
+
+4）客户端访问方式（web2主机操作）
+[root@web2 ~]# git clone git://192.168.2.100/base_git
+
+
+步骤三：HTTP协议服务器（只读操作的服务器）
+
+1）安装gitweb、httpd软件包（web1主机操作）。
+[root@web1 ~]# yum -y install httpd gitweb
+
+2）修改配置文件，设置仓库根目录（web1主机操作）。
+[root@web1 ~]# vim +11 /etc/gitweb.conf 
+$projectroot = "/var/git";                        #添加一行
+
+3) 创建版本仓库（web1主机操作）
+[root@web1 ~]# git init --bare /var/git/base_http
+
+4）启动httpd服务器
+[root@web1 ~]# systemctl start httpd
+
+5）客户端访问方式（web2主机操作）
+注意：调用虚拟机中的firefox浏览器，需要在远程时使用ssh -X 服务器IP，并且确保真实主机的firefox已经关闭。
+
+[root@web2 ~]# firefox http://192.168.2.100/git/
+
+###############################################################################
+
+制作nginx的RPM包
+
+RPM是一个压缩包
+
+把/usr/local/nginx 打包压缩nginx.rpm
+
+rpm -ivh nginx.rpm
+/usr/local.nginx
+yum -y ins install nginx
+
+
+
+####################################################################
+步骤一：安装rpm-build软件
+
+1)[root@web1 ~]# yum -y install  rpm-build
+
+
+
+2）生成rpmbuild目录结构
+[root@web1 ~]# rpmbuild -ba nginx.spec                //会报错，没有文件或目录
+[root@web1 ~]# ls /root/rpmbuild                    //自动生成的目录结构
+BUILD  BUILDROOT  RPMS  SOURCES  SPECS  SRPMS
+
+
+
+
+3）准备工作，将源码软件复制到SOURCES目录
+[root@web1 ~]# cp nginx-1.12.2.tar.gz /root/rpmbuild/SOURCES/
+
+
+
+
+
+4）创建并修改SPEC配置文件
+[root@web1 ~]# vim /root/rpmbuild/SPECS/nginx.spec 
+
+Name:nginx           //源码包软件名称
+Version:1.12.2     //源码包软件的版本号
+Release:    10      //制作的RPM包版本号
+Summary: Nginx is a web server software.     //RPM软件的概述  
+
+#Group		//注释掉  
+License:GPL       //软件的协议
+URL:    www.test.com        //网址
+Source0:nginx-1.12.2.tar.gz      //源码包文件的全称
+
+#BuildRequires:       //制作RPM时的依赖关系
+#Requires:          //安装RPM时的依赖关系
+
+%description
+nginx [engine x] is an HTTP and reverse proxy server.    //软件的详细描述
+
+
+%post		//需要自己添加,安装后脚本
+useradd nginx       //非必需操作：安装后脚本(创建账户)
+
+%prep
+%setup -q     //自动解压源码包，并cd进入目录
+
+%build
+./configure
+make %{?_smp_mflags}
+
+%install
+make install DESTDIR=%{buildroot}
+
+%files
+%doc
+/usr/local/nginx/*      //对哪些文件与目录打包
+
+%changelog
+
+
+
+
+1)三个不能改错的:
+name version  source
+
+2)编译安装,打包
+	./configure
+	%file
+	/usr/local/nginx/*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

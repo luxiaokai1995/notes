@@ -1,0 +1,208 @@
+传输层   
+TCP  面向连接
+三次握手
+SYN----ACK，SYN----ACK
+四次断开
+FIN----ACK----FIN----ACK
+HTTP  80
+DNS   53
+SSH   22
+FTP   21
+SMTP  25
+HTTPS 443
+
+UDP  不可靠   无连接   效率高
+DNS  53
+TFTP 69
+NTP  123
+
+ACL  访问控制列表
+标准   针对源ip限制  1～99
+扩展   源ip ，目标ip，协议，端口  100～199
+
+NAT  网络地址转换，私有ip转换为公有ip
+A 10.0.0.0～10.255.255.255
+B 172.16.0.0～172.31.255.255
+C 192.168.0.0～192.168.255.255
+
+静态  一对一
+PAT 一对多
+
+STP  生成树协议，通过临时断开某接口避免广播风暴，当其他链路断开后，此接口会自动恢复，起到备份链路的效果
+决定断开接口的是主根网桥与次根网桥
+通过修改优先级可以实现主根与次根的配置
+优先级默认 32768，越小越优先，如果要修改，必须为4096的倍数
+1，在Switch1中配置
+Switch(config)#spanning-tree vlan 1 priority 24576
+Switch#show spanning-tree   //查看所有vlan的生成树信息
+Switch#show spanning-tree vlan 1  //查看vlan1的生成树信息
+阻塞接口  BLK
+转发接口  FWD
+
+Switch(config)#spanning-tree vlan 1 root primary   //将当前设备配置为主根
+Switch(config)#spanning-tree vlan 1 root secondary  //将当前设备配置为次根
+
+
+vlan1   vlan2
+
+MS1  vlan1的主根   vlan2的次根
+MS2  vlan1的次根   vlan2的主根
+
+HSRP  热备份路由选择协议
+主要功能：网关备份
+
+三层交换机物理接口配置ip首先转换为路由器接口
+no switchport	再开启路由功能 ip routing
+in vlan 1    //进入vlan1 配置ip
+
+路由器
+outer(config)#router ospf 1
+Router(config-router)#network 192.168.4.0 0.0.0.255 area 0
+Router(config-router)#network 192.168.3.0 0.0.0.255 area 0
+Router(config-router)#network 192.168.2.0 0.0.0.255 area 0
+MS1
+Switch(config)#ip routing
+Switch(config)#router ospf 1
+Switch(config-router)#network 192.168.1.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.2.0 0.0.0.255 area 0
+MS2
+Switch(config)#ip routing
+Switch(config)#router ospf 1
+Switch(config-router)#network 192.168.1.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.3.0 0.0.0.255 area 0
+
+
+三层交换机开启HSRP功能：
+Switch(config)#interface vlan 1
+Switch(config-if)#standby 1 ip 192.168.1.254
+Switch(config-if)#standby 1 priority 105
+Switch(config-if)#standby 1 preempt
+
+
+综合拓扑：
+1，为每台2960交换机分别添加10、20、30、40这四个vlan
+2，将每台2960交换机的f0/5口分别加入vlan10、20、30、40
+		注意：最后一台要加5口与6口到vlan40中
+SW1#conf t
+SW1(config)#in f0/5
+SW1(config-if)#switchport access vlan 10     //第一台加vlan10
+3，为三层交换机分别添加10、20、30、40这四个vlan
+4，将所有交换机与交换机之间的链路配置为trunk
+Switch(config)#interface range fastEthernet 0/1-5
+Switch(config-if)#switchport trunk encapsulation dot1q 	
+Switch(config-if)#switchport mode trunk	
+5，通过配置生成树协议，实现负载均衡
+MS1   vlan10、20 主根   vlan30、40 次根    stp
+	  vlan10、20 活跃   vlan30、40 备份    hsrp
+	  
+MS2   vlan10、20 次根   vlan30、40 主根    stp
+	  vlan10、20 备份   vlan30、40 活跃    hsrp
+
+第一台三层交换机配置：
+Switch(config)#spanning-tree vlan 10 root primary   //将当前设备配置为vlan10的主根
+Switch(config)#spanning-tree vlan 20 root primary   //将当前设备配置为vlan20的主根
+Switch(config)#spanning-tree vlan 30 root secondary  //将当前设备配置为vlan30的次根
+Switch(config)#spanning-tree vlan 40 root secondary  //将当前设备配置为vlan40的次根
+第二台三层交换机配置：
+Switch(config)#spanning-tree vlan 40 root primary   //将当前设备配置为vlan40的主根
+Switch(config)#spanning-tree vlan 30 root primary   //将当前设备配置为vlan30的主根
+Switch(config)#spanning-tree vlan 20 root secondary  //将当前设备配置为vlan20的次根
+Switch(config)#spanning-tree vlan 10 root secondary  //将当前设备配置为vlan10的次根
+
+HSRP配置
+MS1：
+Switch(config)#interface vlan 10
+Switch(config-if)#ip add 192.168.10.252 255.255.255.0
+Switch(config-if)#standby 10 ip 192.168.10.254
+Switch(config-if)#standby 10 priority 105
+Switch(config-if)#standby 10 preempt
+Switch(config)#interface vlan 20
+Switch(config-if)#ip add 192.168.20.252 255.255.255.0
+Switch(config-if)#standby 20 ip 192.168.20.254
+Switch(config-if)#standby 20 priority 105
+Switch(config-if)#standby 20 preempt
+Switch(config)#interface vlan 30
+Switch(config-if)#ip add 192.168.30.252 255.255.255.0
+Switch(config-if)#standby 30 ip 192.168.30.254
+Switch(config)#interface vlan 40
+Switch(config-if)#ip add 192.168.40.252 255.255.255.0
+Switch(config-if)#standby 40 ip 192.168.40.254
+MS2：
+Switch(config)#interface vlan 40
+Switch(config-if)#ip add 192.168.40.253 255.255.255.0
+Switch(config-if)#standby 40 ip 192.168.40.254
+Switch(config-if)#standby 40 priority 105
+Switch(config-if)#standby 40 preempt
+Switch(config)#interface vlan 30
+Switch(config-if)#ip add 192.168.30.253 255.255.255.0
+Switch(config-if)#standby 30 ip 192.168.30.254
+Switch(config-if)#standby 30 priority 105
+Switch(config-if)#standby 30 preempt
+Switch(config)#interface vlan 20
+Switch(config-if)#ip add 192.168.20.253 255.255.255.0
+Switch(config-if)#standby 20 ip 192.168.20.254
+Switch(config)#interface vlan 10
+Switch(config-if)#ip add 192.168.10.253 255.255.255.0
+Switch(config-if)#standby 10 ip 192.168.10.254
+
+6，开启所有三层交换机的路由功能，再给服务器配置ip与网关，实现全网互通
+7，在ms1中开启ospf动态路由，并宣告直连网段
+Switch(config)#router ospf 1
+Switch(config-router)#network 192.168.10.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.20.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.30.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.40.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.50.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.60.0 0.0.0.255 area 0
+在ms2中开启ospf动态路由，并宣告直连网段
+Switch(config)#router ospf 1
+Switch(config-router)#network 192.168.10.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.20.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.30.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.40.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.70.0 0.0.0.255 area 0
+Switch(config-router)#network 192.168.80.0 0.0.0.255 area 0
+在r1中开启ospf动态路由，并宣告直连网段
+Router(config)#router ospf 1
+Router(config-router)#network 192.168.50.0 0.0.0.255 area 0
+Router(config-router)#network 192.168.70.0 0.0.0.255 area 0
+在r2中开启ospf动态路由，并宣告直连网段
+Router(config)#router ospf 1
+Router(config-router)#network 192.168.60.0 0.0.0.255 area 0
+Router(config-router)#network 192.168.80.0 0.0.0.255 area 0
+
+8，在两台路由器中设置默认路由并在ospf中向其他设备传递该信息
+Router(config)#ip route 0.0.0.0 0.0.0.0 100.0.0.10
+Router(config)#router ospf 1
+Router(config-router)#default-information originate 
+
+9，在两台路由器中设置nat，使内网192.168.40.1设备可以访问外网
+Router(config)#ip nat inside source static 192.168.40.1 100.0.0.3
+Router(config)#in g0/2
+Router(config-if)#ip nat outside 
+Router(config-if)#in range g0/0-1
+Router(config-if-range)#ip nat inside 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,259 @@
+******************************************RDBMS2***DAY01*************************************
+一: mysql主从同步
+	1.1 相关概念
+		实现数据自动同步的服务结构(从主服务器拷贝数据)
+			master:开启bin-log日志,授权用户,查看binlog日志
+			slave: 确保数据和主服务器一致.
+			设置server_id ,指定主库地址,启动slave程序
+
+	1.2 部署mysql主从同步,如下
+		1.2.1 配置主服务器192.168.4.51
+			[root@mysql51 ~]# vim /etc/my.cnf
+				[mysqld]
+					server_id=51
+					log-bin=master51
+					:wq
+		[root@mysql51 ~]# systemctl restart mysqld
+		[root@mysql51 ~]# ls /var/lib/mysql/master51*		//查看日志
+		[root@mysql51 ~]# mysql -uroot -p123456
+		mysql> grant replication slave on *.* to repluser@"%" identified by "aaa123...A";//授权repluser用户replication权限
+		mysql> show master status;		//查看日志
+		[root@mysql51 ~]# mysqldump -uroot -p123456 --master-data db5 > /root/db5.sql	//--master-data 记录当前备份数据对应的日志文件
+		[root@mysql51 ~]# ls /root/db5.sql
+		[root@mysql51 ~]# scp db5.sql root@192.168.4.52:/tmp/
+
+		1.2.2 配置从服务器 192.168.4.52
+			确保数据和主服务器一致.(命令行操作,不用频繁切换)
+				[root@mysql52 ~]#  vim /etc/my.cnf
+					[mysql]
+						server_id=52
+						:wq
+				[root@mysql52 ~]#  systemctl restart mysqld
+   				[root@mysql52 ~]#  mysql -uroot -paaa123...A -e "create database db5"
+				[root@mysql52 ~]#  mysql -uroot -paaa123...A db5 < /tmp/db5.sql 
+				[root@mysql52 ~]#  mysql -uroot -paaa123...A -e "select * from db5.a"
+				[root@mysql52 ~]#  mysql -uroot -paaa123...A -e "select * from db5.b"
+
+			指定主服务器信息:
+				[root@mysql52 ~]# grep master51 /tmp/db5.sql
+				mysql> change master to master_host="192.168.4.51",			//配置从服务器地址
+   					 -> master_user="repluser",		//用户
+   					 -> master_password="aaa123...A",		//密码
+    					 -> master_log_file="master51.000001",		//日志
+    					 -> master_log_pos=441;		//偏移量
+					Query OK, 0 rows affected, 2 warnings (0.21 sec)
+				mysql> start slave;				//启动从服务
+				mysql> show slave status\G		//查看线程是否启动
+					Master_Host: 192.168.4.51
+            			 	Slave_IO_Running: Yes
+            			 	Slave_SQL_Running: Yes
+            			 	
+            			 相关文件
+            			 	master.info   					//主库信息
+            			 	relay-log.info					//中继信息
+            			 	主机名-relay-bin.000001		//中继日志
+            			 	主机名-relay-bin.index			//索引文件
+            			 
+            			 将数据库恢复为独立的数据库服务器
+            			 	cd /var/lib/mysql/
+            			 	rm -rf   master.info   relay-log.info
+					rm -rf  *.relay-bin*
+					systemctl  restart  mysqld
+					
+				重新配置为51的从服务器
+					mysql>  show master  status;
+					mysql>  change  master  to .... ;
+					mysql>  start  slave;
+					mysql>  show  slave  status\G;
+		
+	1.3 测试主从同步
+		1.3.1  在主服务器51创建用户
+			mysql> alter user root@"localhost" identified by "aaa123...A";
+		
+		1.3.2  在客户端50主机,连接主服务器访问数据
+			[root@mysql50 ~]# mysql -h"192.168.4.51" -uyaya99 -paaa123...A
+			50  mysql> create table db5.t1(id int);
+			50  mysql> insert into db5.t1 values(11);
+			52  mysql> select * from db5.t1;
+
+二: 主从同步模式
+	2.1 主从同步结构类型
+		一主一从
+		一主多从
+		主从从
+		主主结构
+	
+	2.1 配置 一主多从模式  要求: 把服务器53配置为服务器51的从库
+		[root@mysql53 ~]# vim /etc/my.cnf
+			[mysql]
+				server_id=53
+				:wq
+		[root@mysql53 ~]# systemctl restart mysqld
+		
+		[root@mysql51 ~]# mysqldump -uroot -paaa123...A --master-data db5 > /root/db5.sql		//备份
+		[root@mysql51 ~]# scp db5.sql root@192.168.4.53:/tmp/
+		
+		[root@mysql53 ~]# mysql -uroot -paaa123...A -e "create database db5;" 		//建表
+		[root@mysql53 ~]# mysql -uroot  -paaa123...A db5 < /tmp/db51.sql			//恢复备份
+		[root@mysql53 ~]# mysql -uroot -paaa123...A -e "select * from db5.b;"
+		[root@mysql53 ~]# grep master51 /tmp/db51.sql		查看主机名和键值
+		[root@mysql53 ~]# mysql -h"192.168.4.51"  -urepluser -paaa123...A  		//查看用户是否能登陆
+		[root@mysql53 ~]# mysql -uroot -paaa123...A  
+		mysql> change master to				//配置主从服务器
+ 			   -> master_host="192.168.4.51",
+ 			   -> master_user="repluser",
+ 			   -> master_password="aaa123...A",
+ 			   -> master_log_file="master51.000001",
+ 			   -> master_log_pos=1872;
+			Query OK, 0 rows affected, 2 warnings (0.23 sec)
+		mysql> start slave;		//启动
+		mysql> show slave status\G		//查看状态
+			Master_Host: 192.168.4.51
+			Slave_IO_Running: Yes
+            		Slave_SQL_Running: Yes
+
+		测试配置:  50连接主服务器,在从服务器查看53查看数据
+	
+	2.3 配置主从从结构
+		恢复53为独立服务器
+			[root@mysql53 ~]# systemctl stop mysqld
+			[root@mysql53 ~]# cd /var/lib/mysql
+			[root@mysql53 mysql]# rm  -rf  master.info		//删除文件,变成独立服务器
+			[root@mysql53 mysql]# rm  -rf  relay-log.info 
+			[root@mysql53 mysql]# rm  -rf  *relay-bin*
+			[root@mysql53 mysql]# systemctl start mysqld
+			[root@mysql53 mysql]# mysql -uroot -paaa123...A   	
+			mysql> show slave status;		//查看主从属性
+			mysql> drop database db5;		//删表,变成原始状态
+		
+		配置主服务器53
+			[root@mysql53 mysql]# vim /etc/my.cnf		//开启日志文件
+				[mysql]
+					log-bin=db53
+					:wq
+			[root@mysql53 mysql]# ls /var/lib/mysql/db53* 		//查看日志文件
+			[root@mysql53 mysql]# mysql -uroot -paaa123...A
+			mysql> grant replication slave on *.* to repluser@"%" identified by "aaa123...A";    		//添加从服务器登录用户
+			mysql> show master status;   	//查看日志
+			mysql> show databases;
+			
+		配置从服务器54
+			[root@mysql54 ~]# vim /etc/my.cnf
+				[mysqld]
+					server_id=54
+					log-bin=db54
+					log_slave_updates		//允许级联复制
+			[root@mysql54 ~]# systemctl restart   mysqld
+			[root@mysql54 ~]# ls /var/lib/mysql/db54*
+			[root@mysql54 ~]# mysql -uroot -paaa123...A
+			mysql> grant replication slave on *.* to repluser@"%" identified by "aaa123...A";
+			mysql> show master status;
+			
+			mysql> change master to		//配置54为53的从服务器
+				    -> master_host="192.168.4.53",
+				    -> master_user="repluser",
+				    -> master_password="aaa123...A",
+				    -> master_log_file="db53.000001",
+				    -> master_log_pos=441;
+				Query OK, 0 rows affected, 2 warnings (0.37 sec)
+			mysql>  start slave;
+			mysql>  show slave  status\G;
+				Master_Host: 192.168.4.53
+				Slave_IO_Running: Yes
+           			Slave_SQL_Running: Yes
+
+		配置从服务器55
+			[root@mysql55 ~]# vim /etc/my.cnf
+				[mysql]
+					server_id=55
+					:wq
+			[root@mysql55 ~]# systemctl restart mysqld
+			mysql> change master to		//配置55为54的从服务器
+				    -> master_host="192.168.4.54",
+				    -> master_user="repluser",
+				    -> master_password="aaa123...A",
+				    -> master_log_file="db54.000001",
+				    -> master_log_pos=441;
+				Query OK, 0 rows affected, 2 warnings (0.37 sec)
+			mysql>  start slave;
+			mysql>  show slave  status\G;
+				Master_Host: 192.168.4.54
+				Slave_IO_Running: Yes
+           			Slave_SQL_Running: Yes
+
+
+
+
+	
+	2.4 主从同步复制模式
+		2.4.1  主从同步复制模式介绍
+			异步复制		//默认
+			全同步复制
+			半同步复制
+			
+		2.4.2 配置半同步复制模式
+			命令行配置立即生效
+			
+			
+			永久配置vim//etc/my.sql
+				查看是否允许动态加载模块(默认允许)
+					mysql > show variables like "have_dynamic_loading";
+				命令行加载插件
+					mysql> install plugin rpl_semi_sync_master SONAME "semisync_master.so";		//主服务器执行
+					mysql> install plugin rpl_semi_sync_slave SONAME "semisync_slave.so";			//从服务器执行
+					mysql> select plugin_name , plugin_status from information_schema.plugins where plugin_name like '%semi%';	//查询是否加载成功
+					mysql> set global rpl_semi_sync_master_enabled=1;		//主服务器执行
+					mysql> set global rpl_semi_sync_slave_enabled=1;		//从服务器执行
+					mysql> show variables like "rpl_semi_sync_%_enabled";	//查看
+					
+					[root@mysql54 ~]# vim /etc/my.cnf
+						[mysql]
+							plugin-load=rpl_semi_sync_master=semisync_master.so
+							rpl_semi_sync_master_enabled=1
+							plugin-load=rpl_semi_sync_slave=semisync_slave.so
+							rpl_semi_sync_slave_enabled=1
+							:wq
+
+					
+					
+					
+			安装模块
+					
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

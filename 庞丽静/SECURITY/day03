@@ -1,0 +1,281 @@
+****************************************SECURITY*DAY03***********************************************
+一 :Linux 基本防护
+	1.1 用户账号安全
+		1.1.1修改用户zhangsan的账户属性
+			chage命令的语法格式：
+			chage –l    账户名称                                //查看账户信息
+			chage –E 时间 账户名称                         //修改账户有效期
+			chage   -E   2019/07/31   bob
+			chage   -l    bob
+			echo 123456  | passwd  --stdin  bob
+			chage    -d    0    bob				//下次登录必须更改密码才能登陆
+			
+				-d, --lastday 最近日期        将最近一次密码设置时间设为“最近日期”
+  				-E, --expiredate 过期日期     将帐户过期时间设为“过期日期”
+  				-h, --help                    显示此帮助信息并推出
+  				-I, --inactive INACITVE       过期 INACTIVE 天数后，设定密码为失效状态
+  				-l, --list                    显示帐户年龄信息
+  				-m, --mindays 最小天数        将两次改变密码之间相距的最小天数设为“最小天数”
+  				-M, --maxdays 最大天数        将两次改变密码之间相距的最大天数设为“最大天数”
+ 				-R, --root CHROOT_DIR         chroot 到的目录
+  				-W, --warndays 警告天数       将过期警告天数设为“警告天数”
+  					
+  			定义默认有效期
+				/etc/login.defs这个配置文件，决定了账户密码的默认有效期。
+					grep -v '#' /etc/login.defs		//查看文件有效信息
+						MAIL_DIR	/var/spool/mail	//创建邮箱
+						PASS_MAX_DAYS	99999		//密码最长有效期
+						PASS_MIN_DAYS	0			//密码最短有效期
+						PASS_MIN_LEN	5			//密码最短长度
+						PASS_WARN_AGE	7		 //密码过期前几天提示警告信息
+						UID_MIN                  1000		//最小UID
+						UID_MAX                 60000		//UID最大值
+						SYS_UID_MIN               201
+						SYS_UID_MAX               999
+						GID_MIN                  1000		//最小GID
+						GID_MAX                 60000		//最大GID
+						SYS_GID_MIN               201
+						SYS_GID_MAX               999
+						CREATE_HOME	yes		//创建家目录
+						UMASK           077
+						USERGROUPS_ENAB yes			//创建从属组
+						ENCRYPT_METHOD SHA512 		//加密算法
+					
+		1.1.2临时锁定用户zhangsan的账户，使其无法登录，验证效果后解除锁定
+			 passwd -l zhangsan                       //锁定用户账号lock
+			 passwd -S zhangsan                      //查看状态status
+			 passwd -u zhangsan                       //解锁用户账号
+			
+	
+		1.1.3修改tty登录的提示信息，隐藏系统版本
+			cat /etc/issue                              //确认原始文件
+			Kernel \r on an \m
+			cp /etc/issue /etc/issue.origin              //备份文件
+			vim /etc/issue                              //修改文件内容
+			Windows Server 2012 Enterprise R2
+			NT 6.2 Hybrid
+
+	1.2 文件系统安全
+		1.2.1禁用非必要的系统服务RHEL7
+			systemctl    disable   httpd		//关闭开机自启
+			systemctl    enable   httpd		//开机自启
+			
+		1.2.2禁用非必要的系统服务RHEL6及之前
+			chkconfig    httpd   off		//开机自启
+			chkconfig    httpd   on		//关闭开机自启
+		
+		1.2.3锁定/解锁保护文件(给文件属性)
+			属性i :	chattr +i  文件名	chattr -i  文件名    		//不可变
+			属性a:	chattr +a  文件名 	chattr -a  文件名		//仅追加
+			 lsattr 文件名                        //查看文件特殊属性
+			chattr +a /etc/passwd		//锁定文件
+			lsattr /etc/passwd			//查看
+			echo "192.168.4.1  xyz" > /etc/hosts     //失败
+			 echo "192.168.4.1  xyz" >> /etc/hosts    //成功
+			chattr -a /etc/passwd		//解锁文件
+　			chattr +i /etc/resolv.conf 		//加了权限不可删除
+			lsattr /etc/resolv.conf 
+			----i---------- /etc/resolv.conf
+			rm -rf 	/etc/resolv.conf
+			rm: 无法删除"/etc/resolv.conf": 不允许的操作
+					 
+二 :用户切换与提权
+	2.1  用户切换
+		su   root    	 //切换用户不换环境
+		su  -  root	//切换用户及环境
+		su - -c "systemctl restart sshd"  root       //以管理员重启服务(要输入密码)
+
+
+	2.2用户提权(设置系统普通用户可以执行root命令的权限)
+		cat   /var/log/secure		//记录su 操作的日志文件
+		
+		2.2.1 主配置文件			//    /etc/sudoers
+			打开主配置文件方法1    visudo (没颜色,错了不提示)
+			打开主配置文件方法2    vim /etc/sudoers  (保存要用  :wq!   )		
+			格式1   用户名   主机名列表=命令列表
+			格式2   %用户组名   主机名列表=命令列表	
+			99  #   %wheel  ALL=(ALL)       ALL	//工作中一定要这行注释掉,否则将用户加入wheel组就可以获得root的所有权限
+			sudo   -l		//普通用户查看可以sudo命令
+			
+			启用日志
+			Defaults  logfile="/var/log/sudo"		//主配置文件里添加(日志路径)
+			tail /var/log/sudo
+			
+			vim   /etc/sudoers		//添加sudo命令
+			aa  localhost,localhost=/usr/bin/vim /etc/my.cnf , /usr/bin/systemctl * mysql		
+			//用户 aa 可以在 localhost 上运行  /usr/bin/vim   /etc/my.cnf 	, /usr/bin/systemctl * mysql
+			
+			mike localhost,localhost=/sbin/* , !/sbin/ifconfig eth0		//开启用户mike/sbin/下除了ifconfig eth0的所有权限
+			
+			softadm    ALL=(ALL)   /usr/bin/systemctl         	//授权softadm以root身份执行systemctl命令（ALL包括root）
+		
+		配置别名  (别名名称必须大写)
+			用户别名  User_Alias   	别名名称=值列表
+			主机别名	 Host_Alias   	别名名称=值列表
+			命令别名  Cmnd_Alias 	别名名称=值列表
+		
+		
+三 : 提高SSH服务安全
+	3.1  基本防护
+		3.1.1修改ssh服务运行参数
+			 vim /etc/ssh/sshd_config
+			 	Port  2222					//改用非标准端口
+				Protocol 2                                      //SSH协议
+				PermitRootLogin no                     //禁止root用户登录
+				PermitEmptyPasswords no         //禁止密码为空的用户登录
+				UseDNS  no                                   //不解析客户机地址
+				LoginGraceTime  1m                    //登录限时,输错三次后1分钟之内不能登录
+				MaxAuthTries  3                            //每连接最多认证次数(防止暴力破解)
+				ListenAddress				//监听地址
+		3.1.2 设置用户黑白命令(控制客户端连接使用的用户)
+			白名单 :  定义仅允许连接的用户	(服务需重启)
+				##  AllowGroups  GROUP1 GROUP2     
+				##  AllowUsers USER1 USER2
+				tail -1 /etc/ssh/sshd_config
+				AllowUsers root@192.168.4.254  ass		//白名单,只允许真机使用root用户登录,所有主机使用ass用户登录
+				
+			黑名单:    定义仅不允许连接的用户  (sssh服务需重启)
+				##  DenyGroups  GROUP1 GROUP2     
+				##  DenyUsers USER1 USER2			
+				DenyUsers mike aa			//禁止mike    aa用户登录
+		
+	3.2密钥对验证
+		ssh服务验证用户登录方式有两种  :  口令   密钥对
+			rm -rf    ~/.ssh		//清除密钥对
+			3.2.1配置12主机可以用root用户,无密码登录11主机
+				11主机配置
+					修改配置文件仅允许密钥对登录(传完密钥对在关闭口令登录)
+						65  PasswordAuthentication yes		//密码验证允许(传完密钥对在关闭口令登录)
+						43  #PubkeyAuthentication yes			//密钥对验证
+						46  AuthorizedKeysFile      .ssh/authorized_keys		//秘钥文件路径
+					重启
+					
+				12主机
+					rm -rf    ~/.ssh	//清除密钥对
+					ssh-keygen		//创建密钥对
+					ls  ~/.ssh		//查看
+					ssh-copy-id  root@192.168.4.11	//传输密钥对
+		
+
+四 :SELinux安全防护
+	教学环境 :  将Linux服务器的SELinux设为enforcing强制模式
+			vim /etc/selinux/config
+				SELINUX=enforcing                                //设置SELinux为强制模式
+				SELINUXTYPE=targeted                            //保护策略为保护主要的网络服务安全
+			touch /.autorelabel		//环境问题,需要创建文件
+			reboot
+	4.1  SELinux介绍
+		getenforce                        //查看当前状态
+	 	setenforce 1                      //设置SELinux为强制模式
+	 	setenforce 0                      //设置SELinux为强制模式
+	 	
+		sestatus					//查看当前状态
+			SELinux status:                 enabled
+			SELinuxfs mount:                /sys/fs/selinux
+			SELinux root directory:         /etc/selinux
+			Loaded policy name:             targeted		//保护策略
+			Current mode:                   enforcing			//工作模式
+			Mode from config file:          enforcing
+			Policy MLS status:              enabled
+			Policy deny_unknown status:     allowed
+			Max kernel policy version:      31			//版本
+	4.2 查看安全上下文  (-Z)
+		查文件:
+			ls -lZ /etc/passwd
+			-rw-r--r--. root root              system_u:object_r:passwd_file_t:s0              /etc/passwd
+			属性构成 :   system_u:object_r:passwd_file_t:s0
+		查目录:
+			ls -ldZ /etc/
+			drwxr-xr-x. root root               system_u:object_r:etc_t:s0              /etc/
+			属性构成 :   system_u:object_r:etc_t:s0
+		查进程:
+			ps aux -Z | grep httpd
+			system_u:system_r:httpd_t:s0              root      1002  0.1  0.3 224020  5020 ?        Ss   16:18   0:00 /usr/sbin/httpd -DFOREGROUND
+			属性构成 :   system_u:system_r:httpd_t:s0
+		
+		属性构成 :	system_u:object_r:passwd_file_t:s0
+					system_u:object_r:etc_t:s0
+					system_u:system_r:httpd_t:s0
+					用户:角色:访问类型:选项...
+		
+		一般操作规律 : 
+		移动的文件, 原有上下文属性不变
+		复制的文件, 自动继承目标位置的上下文
+		新建的文件, 自动继承父目录的上下文
+			[root@localhost ~]# touch /var/www/html/aaa.html
+			[root@localhost ~]# touch /root/bbb.html
+			[root@localhost ~]# ls -lZ /var/www/html/aaa.html
+			-rw-r--r--. root root unconfined_u:object_r:httpd_sys_content_t:s0 /var/www/html/aaa.html
+			[root@localhost ~]# ls -ldZ /var/www/html/
+			drwxr-xr-x. root root system_u:object_r:httpd_sys_content_t:s0 /var/www/html/
+			[root@localhost ~]# ls -ldZ /root/
+			dr-xr-x---. root root system_u:object_r:admin_home_t:s0 /root/
+			[root@localhost ~]# ls -lZ /root/bbb.html
+			-rw-r--r--. root root unconfined_u:object_r:admin_home_t:s0 /root/bbb.html	
+			[root@localhost ~]# mv /root/bbb.html /var/www/html/bbb.html		//标签不对,浏览器没法访问,提示权限不足
+			
+		修改安全上下文:
+			指定安全上下文:
+			chcon -t httpd_sys_content_t /var/www/html/b.html
+			
+			恢复安全上下文 :
+			restorecon  /var/www/html/b.html		//不用指定安全上下文
+			
+			touch  /.autorelabel		//下次重启全部重置安全上下文
+
+	4.3 调整SELinux布尔值  (功能开关)
+		getsebool -a		//查看所有服务的布尔值
+		
+		setsebool -P samba_share_nfs on 		// -P是永久生效
+		setsebool -P  配置项  on | off			//格式
+
+		案例  :  在50主机SELinux启用状态下，调整策略打开vsftpd服务的匿名上传访问
+			配置一个允许匿名上传的vsftpd服务作为测试环境
+				yum -y install vsftpd
+				vim +29 /etc/vsftpd/vsftpd.conf	//修改配置文件
+				anon_upload_enable=YES			//注释去掉,开启匿名上传
+				mkdir /var/ftp/sharedir			//目录默认没有,手动创建
+				chmod o+w /var/ftp/sharedir		//给其他人加权限
+				systemctl start vsftpd				//启动
+				cp /etc/passwd /var/ftp/sharedir	//拷贝文件
+				
+			客户端配置 : 	
+			yum -y install ftp		//装包,命令行登录ftp命令
+			ftp 192.168.4.13		//登录
+			Name (192.168.4.13:root):        ftp		//匿名登录默认用户名	
+			Password:		//密码为空,直接回车
+			ftp>       cd sharedir		//切换目录
+			ftp>       ls
+			-rw-r--r--    1 0        0             982 Jul 27 09:20 passwd
+			ftp>          get passwd		//下载passwd文件
+			ftp>          lcd /etc/		//lcd  是进本地目录,  cd是进ftp目录
+			ftp>         put  hosts
+			553 Could not create file.	(失败)		//SELinux开启默认不允许上传
+			ftp>           bye			//退出
+			
+			50主机修改 : 
+			setsebool -P ftpd_anon_write on		//设置匿名用户可写
+			setsebool -P ftpd_full_access on			//开启完全权限
+			getsebool -a | grep ftp		//查看状态
+			
+			修改后上传 : 		
+			ftp> put shadow
+			1110 bytes sent in 8.6e-05 secs (12906.98 Kbytes/sec)
+			ftp> ls
+			....
+			-rw-------    1 14       50           1110 Jul 27 09:47 shadow
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

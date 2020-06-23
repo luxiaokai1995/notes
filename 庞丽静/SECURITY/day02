@@ -1,0 +1,239 @@
+******************************************SECURITY*DAY02********************************************
+一 : Zabbix报警机制
+	1.1  相关概念
+		自定义的监控项默认不会自动报警，
+		首页也不会提示错误，
+		需要配置触发器与报警动作才可以自定报警。
+		什么是触发器（trigger）？
+			当触发条件发生后，会导致一个触发事件
+			触发事件会执行某个动作
+		什么是动作（action）？
+			动作是触发器的条件被触发后所执行的行为
+			可以是发送邮件、也可以是重启某个服务等
+	1.2  配置监控报警
+		1.2.1  创建触发器
+			配置-->模板--触发器-->创建触发器
+			
+		1.2.2  创建动作
+			设置邮件服务器
+				yum -y install postfix		//安装邮件服务
+				systemctl start postfix		//启动
+				ss -nulatp |grep :25
+				echo "127.0.0.1  zabbixserver"  >> /etc/hosts		//Zabbix与本机绑定
+				yum -y install mailx		//命令行发邮件的安装包
+				mail -s "aaa" zabbix < /etc/hosts		//发邮件给zabbix
+			登录管理页面指定邮件服务器  :
+				管理-->报警媒介类型-->电子邮件-->(内容)-->更新
+				SMTP服务器  : localhost
+				SMTP HELO  : zabbixserver
+				SMTP电邮  : (发件人邮箱)  root@localhost
+			登录管理页面为账户指定Media(指定收件人) :
+				管理-->用户-->admin-->报警媒介-->添加-->收件人
+			登录管理页面创建动作 :	
+				配置-->动作-->创建动作-->(名称自定义)-->触发条件(触发器)-->操作-->新的--用户添加
+			效果测试 :	1 添加用户
+						2 查看监控数据
+						3 查看触发器是否触发
+						4 查看邮件
+
+二 : Zabbix进阶操作
+	2.1 自动发现
+		2.1.1简介:
+			当Zabbix需要监控的设备越来越多，手动添加监控设备越来越有挑战，
+			此时，可以考虑使用自动发现功能，自动添加被监控主机，
+			实现自动批量添加一组监控主机功能。
+			自动发现可以实现：
+			自动发现、添加主机，自动添加主机到组；
+			自动连接模板到主机，自动创建监控项目与图形等
+		2.1.2配置自动发现
+			1)创建自动发现规则
+				配置-->自动发现-->创建发现规则-->(设置)-->添加
+			2)创建动作
+				配置-->动作-->(自动发现)创建动作-->添加
+			3)创建新的虚拟机 配置ip地址并运行网站服务
+
+	2.2  主被动监控
+		2.2.1 介绍 :
+			默认zabbix采用的是被动监控，主动和被动都是对被监控端主机而言的！
+			被动监控：Server向Agent发起连接，发送监控key，Agent接受请求，响应监控数据。
+			主动监控：Agent向Server发起连接，Agent请求需要检测的监控项目列表，Server响应Agent发送一个items列表，
+					   Agent确认收到监控列表，TCP连接完成，会话关闭，Agent开始周期性地收集数据。
+			区别： Server不用每次需要数据都连接Agent，Agent会自己收集数据并处理数据，Server仅需要保存数据即可。
+				    当监控主机达到一定量级后，Zabbix服务器会越来越慢，此时，可以考虑使用主动监控，释放服务器的压力。
+
+		2.2.2  配置主动监控
+			1) 配置客户端 192.168.2.201
+				scp zabbix-3.4.4.tar.gz root@192.168.2.201:/root/
+				安装源码软件
+					yum -y install gcc pcre-devel
+					./configure --enable-agent
+					make install		
+				修改配置文件
+					vim /usr/local/etc/zabbix_agentd.conf
+					93 # Server=127.0.0.1		//注释该行，允许谁监控本机
+					118 StartAgents=0		//被动监控时启动多个进程     设置为0，则禁止被动监控，不启动zabbix_agentd服务
+					134 ServerActive=192.168.2.5		//允许哪些主机监控本机（主动模式），一定要取消127.0.0.1
+					145 Hostname=web201	//告诉监控服务器，是谁发的数据信息,一定要和zabbix服务器配置的监控主机名称一致（后面设置）
+					183 RefreshActiveChecks=120		//默认120秒检测一次
+					
+				启动服务
+					useradd zabbix
+					zabbix_agentd
+				
+				查看服务信息
+					ps -C zabbix_agentd		//只有进程没端口
+				
+			2) 配置服务器 192.168.2.5
+				克隆模板
+					配置-->模板-->模板名-->全克隆-->(改名)添加
+	
+				修改监控项模式
+					监控项-->(全选)批量更新-->类型(主动式)-->更新-->(将三项不能主动式的禁用)
+	
+				添加监控主机
+					配置-->主机-->创建主机-->(主机名写配置文件里的)-->ip0.0.0.0端口0 -->添加
+				为主机添加监控模板
+					模板--> 自定义那个-->更新
+				查看数据图表
+				
+	2.3 拓扑图与聚合图形
+		2.3.1 介绍
+			绘制拓扑图可以快速了解服务器架构
+			
+		2.3.2创建拓扑图
+			监测中-->拓扑图-->创建拓扑图-->构造函数
+	
+		2.3.3创见聚合图形   (聚合图形可以在一个页面显示多个数据图表，方便了解多组数据)
+	
+三 :  监控案例(在客户端编写监控脚本,给监控服务器使用)
+	环境准备 : 
+		在200主机运行Zabbix_agent服务 :
+			vim /usr/local/etc/zabbix_agentd.conf	//修改配置文件,启用被动监控
+		 		93 Server=127.0.0.1, 192.168.2.5
+		 		134 ServerActive=192.168.2.5:10051
+		 		265 Include=/usr/local/etc/zabbix_agentd.conf.d/*.conf
+		 		280 UnsafeUserParameters=1
+			启动服务
+		在200主机上运行nginx服务 :
+			./configure --with-http_stub_status_module
+			make  &&   make install
+		启动服务
+			vim /usr/local/nginx/conf/nginx.conf	//添加启用status模块
+			server {
+        				location /status  {
+        					stub_status on;
+					}
+					......
+					}
+			
+	3.1监控nginx服务状态
+		3.1.1编写脚本
+			vim /usr/local/bin/nginx_status.sh	//编写脚本,利用case命令(与if相近)
+				case $1 in
+				"Active")
+				curl -s http://localhost/status | awk 'NR==1{print $3}';;
+				"accepts")
+				curl -s http://localhost/status | awk 'NR==3{print $1}';;
+				"Waiting")
+				curl -s http://localhost/status | awk 'NR==4{print $6}'
+				esac
+			chmod +x  /usr/local/bin/nginx_status.sh		//加权限
+			/usr/local/bin/nginx_status.sh Waiting	//运行测试
+		3.1.2  将脚本定义为监控命令
+			vim /usr/local/etc/zabbix_agentd.conf.d/status.conf		//编写监控命令
+			UserParameter=nginx_status[*],/usr/local/bin/nginx_status.sh $1		//  * 代表传给$1的值
+			zabbix_get -s 127.0.0.1 -p 10050 -k nginx_status[Waiting]		//测试
+			zabbix_get -s 127.0.0.1 -p 10050 -k nginx_status[accepts]
+			zabbix_get -s 127.0.0.1 -p 10050 -k nginx_status[Active]
+		
+		3.1.3  创建监控模板 ATMP2
+			配置-->模板-->创建模板
+		3.1.4  创建应用集  mon_nginx
+			(接上)模板-->应用集-->创建应用集
+		3.1.5  创建监控项
+			(接上)监控项-->创建监控项-->键值(写命令)-->应用集(mon_nginx)-->添加		//应用及相当于目录
+		3.1.6  使用新模板监控200主机	
+			200主机添加新模板
+		3.1.7  查看监控数据
+			ab -n 1000 -c 1000 http://127.0.0.1/status		//压力测试
+				
+	3.2监控网络连接状态
+		[root@zabbixclient_web1 ~]# ss -antup
+		//-a显示所有
+		//-t显示TCP连接状态
+		//-u显示UDP连接状态
+		//-n以数字形式显示端口号和IP地址
+		//-p显示连接对应的进程名称
+					
+		3.2.1编写监控脚本
+			vim /usr/local/bin/tcp_status.sh
+				case $1 in
+				"estab")
+				ss -antp | awk '/^ESTAB/{x++} END{print x}';;
+				"close_wait")
+				ss -antp | awk '/^CLOSE-WAIT/{x++} END{print x}';;
+				"time_wait")
+				ss -antp | awk '/^TIME-WAIT/{x++} END{print x}';;
+				esac
+			chmod +x /usr/local/bin/tcp_status.sh		//加运行权限
+		3.2.2编写监控配置文件
+			vim /usr/local/etc/zabbix_agentd.conf.d/status.conf		//配置(也可新建)
+			UserParameter=net.status[*],/usr/local/bin/tcp_status.sh $1	//添加配置文件内容
+			killall -9 zabbix_agentd		//重启
+			zabbix_agentd
+			zabbix_get -s 127.0.0.1 -p 10050 -k net.status[estab]		//测试
+			zabbix_get -s 127.0.0.1 -p 10050 -k net.status[time_wait]
+			zabbix_get -s 127.0.0.1 -p 10050 -k net.status[close_wait]
+		3.2.3配置监控服务器,登录管理页面作如下配置 : 
+			1)  在监控模板ATMP2里创建新应用集  mon_tcp
+				
+			2)  创建监控项
+			
+			3)  查看监控数据 
+	
+	3.3课外扩展
+		
+		
+		
+		
+		
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,288 @@
+一.  表结构
+		| Null | Key | Default | Extra |
+		|　　空   |　键值｜　默认值　｜额外设置｜
+	1.1 字段约束条件 (控制字段赋值)
+	２．设置约束条件
+		创建t7表格
+			mysql> create table db2.t7(
+ 			   -> name char(15) not null,
+   			 -> age tinyint unsigned default 25,
+   			 -> class char(9) not null default "nsd1904",
+    			-> sex enum("男","女") default "男",
+   			 -> pay float(7,2) default 28000
+    			-> );
+			Query OK, 0 rows affected (0.59 sec)
+
+			mysql> desc t7;
+			+-------+---------------------+------+-----+----------+-------+
+			| Field | Type                | Null | Key | Default  | Extra |
+			+-------+---------------------+------+-----+----------+-------+
+			| name  | char(15)            | NO   |     | NULL     |       |
+			| age   | tinyint(3) unsigned | YES  |     | 25       |       |
+			| class | char(9)             | NO   |     | nsd1904  |       |
+			| sex   | enum('男','女')     | YES  |     | 男       |       |
+			| pay   | float(7,2)          | YES  |     | 28000.00 |       |
+			+-------+---------------------+------+-----+----------+-------+
+			5 rows in set (0.00 sec)
+
+
+案例一:
+
+
+		mysql> create table db2.t2(
+  		  -> class char(9),
+  		  -> name char(10) not null default "",
+ 		   -> age tinyint(4) not null default 19,
+ 		   -> likes set("a","b","c","d") default "a,b");
+		Query OK, 0 rows affected (0.60 sec)
+
+		mysql> desc db2.t2;
+		+-------+----------------------+------+-----+---------+-------+
+		| Field | Type                 | Null | Key | Default | Extra |
+		+-------+----------------------+------+-----+---------+-------+
+		| class | char(9)              | YES  |     | NULL    |       |
+		| name  | char(10)             | NO   |     |         |       |
+		| age   | tinyint(4)           | NO   |     | 19      |       |
+		| likes | set('a','b','c','d') | YES  |     | a,b     |       |
+		+-------+----------------------+------+-----+---------+-------+
+		4 rows in set (0.00 sec)
+
+
+
+
+二．myself
+	普通索引index
+	唯一索引inique
+	主键primary key
+	外    键 foreign  key ***
+	全文索引 fulltext
+		作用：约束如何给字段赋值
+
+	普通索引（index）
+		什么是索引（索引介绍）
+		为什么要使用索引（索引优点与缺点）
+		使用索引：
+			 使用规则 ？
+			 查看 desc  库.表  key 
+			      show   index  from  表名 \G;			        
+
+			 创建索引:
+				建表时创建索引字段
+					create  table db1.t22(
+						class  char(9),
+						name  char(15),
+						age int,
+						index(name),index(age)
+					 );
+
+					desc  db1.t22;
+
+				        show index  from  db1.t22\G;
+
+				在已有表里创建索引字段
+					mysql> create index xixi 
+							on  stuinfo(name);
+
+			 删除索引:
+				mysql> drop  index  name on t22;
+
+	2.2 主    键 primary  key
+			作用：限制字段赋值
+			使用规则？
+			使用主键：
+				1 创建主键
+					1.1 建表时创建主键
+mysql> create table  db1.t23(
+    -> name char(10) primary key,
+    -> age int,
+    -> pay float(7,2) 
+    -> );
+
+mysql> desc  db1.t23 ;
+mysql> insert into  db1.t23 values(null,19,28800.88);
+mysql> insert into  db1.t23 values("bob",19,28800.88);
+mysql> insert into  db1.t23 values("bob",29,38800.88);
+
+					1.2 在已有表里添加主键
+		mysql> select  * from  db1.classinfo;
+		mysql> delete from  db1.classinfo;
+		mysql> alter table  db1.classinfo add  primary key(name);
+		mysql> desc  db1.classinfo;
+
+练习到 14：45
+
+				2 创建复合主键
+				    约束方式： 主键字段的值不可以同时重复
+	PRI       PRI
+	clientip  serport  status   
+ 	1.1.1.1   22        yes
+	1.1.1.1   22        yes
+
+create table db1.t24(
+clientip  char(15),
+serport	  int,
+status    enum("yes","no"),
+primary key(clientip,serport)
+);
+
+mysql> insert into db1.t24 values ("1.1.1.1",22,"yes");
+mysql> insert into db1.t24 values ("1.1.1.1",22,"no");
+mysql> insert into db1.t24 values ("1.1.1.1",22,"yes");
+mysql> insert into db1.t24 values ("1.1.1.1",25,"yes");
+mysql> insert into db1.t24 values ("1.1.1.1",25,"no");
+mysql> insert into db1.t24 values ("2.1.1.1",25,"no");
+
+				3 primary key与auto_increment连用
+						自增长
+						赋值时 字段的值字段加1
+
+ id  name  age sex
+ 1   bob   19  boy
+ 2  tom   21  boy
+ 3  jerry  25  boy
+ 4  lucy   18  girl
+
+create table  db1.t25(
+ id int primary key  auto_increment,
+ name char(15),
+ age tinyint ,
+ sex enum("boy","girl")
+);
+
+mysql> desc db1.t25 ;
+
+mysql> insert into  db1.t25(name,age,sex)values("bob",19,"boy");
+
+mysql> insert into  db1.t25(name,age,sex)values("tom",21,"boy");
+
+mysql> select  * from  db1.t25;
+
+mysql> insert into db1.t25 values (6,"bob",19,"girl");
+mysql> select  * from  db1.t25;
+
+mysql> insert into  db1.t25(name,age,sex)values("jack",27,"boy");
+mysql> select  * from  db1.t25;
+
+mysql> delete from   db1.t25;
+mysql> select  * from db1.t25;
+
+mysql> insert into  db1.t25(name,age,sex)values("jack",27,"boy");
+mysql> select  * from db1.t25;
+
+				4 删除主键
+				mysql> alter table db1.t23 drop  primary key;
+
+				mysql> alter table  db1.t24 drop primary key;
+
+			mysql> alter table  db1.t25  modify id int;
+			mysql> alter table  db1.t25 drop  primary key;
+ 
+				
+	2.3 外    键 foreign  key
+			作用：限制给字段赋值，插入记录时，
+				     字段值在另一个表字段值范围内选择。
+
+			使用规则:
+				1 表存储引擎必须是innodb
+				2 字段类型要一致
+				3 被参照字段必须要是键值类型的某一种，通常是p					rimary key
+
+			命令格式：
+
+			create table 库.表（
+				字段列表，
+   foreign   key(字段名)  references  表名(字段名) 
+   on  update  cascade       
+   on  delete    cascade
+   )engine=innodb;
+
+
+yg 员工表
+	编号 姓名 
+ 	1    bob
+	2    tom
+ 	3    bob
+
+create table db1.yg(
+yg_id int  primary key auto_increment,
+name  char(20)
+)engine=innodb;
+
+insert into db1.yg(name)values("bob");
+insert into db1.yg(name)values("tom");
+insert into db1.yg(name)values("bob");
+select  * from  db1.yg;
+gz 工资表
+	编号 工资
+	 1   30000  
+	 2   50000
+
+create table db1.gz(
+gz_id int,
+pay  float(7,2),
+foreign key(gz_id) references yg(yg_id) 
+on  update  cascade on delete cascade
+)engine=innodb;
+	 
+mysql> desc db1.gz;
+mysql> show create table db1.gz\G;
+mysql> select  * from  db1.gz;
+
+			测试外键：
+mysql> insert into db1.gz values(4,50000);
+
+ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails (`db1`.`gz`, CONSTRAINT `gz_ibfk_1` FOREIGN KEY (`gz_id`) REFERENCES `yg` (`yg_id`) ON DELETE CASCADE ON UPDATE CASCADE)
+
+
+mysql> insert into db1.gz values(1,50000);
+
+mysql> insert into db1.gz values(2,45000);
+
+mysql> insert into db1.gz values(3,35000);
+
+mysql> select  * from db1.gz;
+
+					练习 到 17：52 
+
+mysql> update db1.yg  set yg_id=4 where yg_id=3;
+mysql> select  * from  db1.yg;
+mysql> select  * from  db1.gz;
+
+
+mysql> delete from db1.yg where yg_id=1;
+mysql> select  * from  db1.yg;
+mysql> select  * from  db1.gz;
+
+mysql> delete from db1.gz;
+mysql> alter table db1.gz add primary key(gz_id);
+
+		删除外键
+			mysql> show create table db1.gz\G;
+			mysql> alter table db1.gz drop foreign key gz_ibfk_1;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,307 @@
+*************************************************COURSE*DAY06*************************************************
+一 : 文件配置
+	1.1 编辑分布式计算框架文件
+		[root@nn01 hadoop]# cd  /usr/local/hadoop/etc/hadoop/
+		[root@nn01 hadoop]# mv mapred-site.xml.template  mapred-site.xml
+		[root@nn01 hadoop]# vim  mapred-site.xml		//编辑分布式计算框架
+			<configuration>
+			  <property>
+				<name>mapreduce.framework.name</name>              
+				<value>yarn</value>		//只支持单机local和集群yarn
+			  </property>
+			</configuration>
+			
+	1.2 编辑资源管理文件	
+		[root@nn01 hadoop]# vim yarn-site.xml 		//编辑资源管理文件
+			<configuration>
+			  <property>
+				<name>yarn.nodemanager.aux-services</name>		//使用哪个计算框架
+				<value>mapreduce_shuffle</value>					//计算框架名称(要和开发人员沟通)
+			  </property>
+			<!-- Site specific YARN configuration properties -->
+			  <property>
+				<name>yarn.resourcemanager.hostname</name>    //resourcemanager地址
+				<value>nn01</value>
+			  </property>
+			</configuration>
+
+	1.3 同步配置文件
+		[root@nn01 hadoop]# for i in node{1..3}; do rsync -aXSH --delete /usr/local/hadoop ${i}:/usr/local/ & done
+		
+	1.4 启动集群,验证状态
+		[root@nn01 hadoop]# /usr/local/hadoop/sbin/start-yarn.sh		//启动集群
+		[root@nn01 hadoop]# jps 			//nn01验证
+		5203 SecondaryNameNode
+		5014 NameNode
+		5846 Jps
+		5582 ResourceManager
+		
+		[root@node1 hadoop]# jps			//node1验证
+		1809 Jps
+		1423 DataNode
+		1711 NodeManager
+
+		[root@node1 hadoop]# /usr/local/hadoop/bin/yarn node -list		//查看是否组成集群
+		19/08/16 09:50:56 INFO client.RMProxy: Connecting to ResourceManager at nn01/192.168.1.60:8032
+		Total Nodes:3
+				 Node-Id	     Node-State	Node-Http-Address	Number-of-Running-Containers
+			 node2:35134	        RUNNING	       node2:8042	                           0
+			 node1:42069	        RUNNING	       node1:8042	                           0
+			 node3:32969	        RUNNING	       node3:8042	                           0
+
+	1.5 web访问hadoop
+		http://192.168.1.60:50070/			//--namenode web页面（nn01）
+		http://192.168.1.60:50090/		//--secondory namenode web页面（nn01）
+		http://192.168.1.61:50075/		//--datanode web页面（node1,node2,node3）
+		http://192.168.1.60:8088/		//--resourcemanager web页面（nn01）
+		http://192.168.1.61:8042/		//--nodemanager web页面（node1,node2,node3）
+
+二 : 集群使用
+	哪台都可以,只要有hadoop就行
+	[root@node1 hadoop]# ./bin/hadoop fs -mkdir /abc			/集群中创建文件夹
+	[root@node1 hadoop]# ./bin/hadoop fs -ls /					//查看
+	Found 1 items
+	drwxr-xr-x   - root supergroup          0 2019-08-16 10:32 /abc
+	[root@node1 hadoop]# ./bin/hadoop fs -touchz /ooxx		//创建文件(多z)
+	[root@node1 hadoop]#  ./bin/hadoop fs -get /ooxx ./		//下载文件
+	[root@node1 hadoop]# ./bin/hadoop fs -put ./*.txt /abc		//上传文件
+	[root@node1 hadoop]#  ./bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.7.jar  \
+								> wordcount /abc /bcd			//分析/abc文件夹将结果放到/bcd文件夹里
+	[root@node1 hadoop]# ./bin/hadoop fs -ls /bcd		//查看/bcd文件夹
+	[root@node1 hadoop]# ./bin/hadoop fs -cat /bcd/part-r-00000			//查看结果
+	[root@node1 hadoop]# ./bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.7.jar \
+								>  wordcount file:///etc/passwd /111		//分析本地文件passwd将结果放到HDFS的/111文件夹下
+
+	fs支持的命令:
+		[-appendToFile <localsrc> ... <dst>]
+		[-cat [-ignoreCrc] <src> ...]
+		[-checksum <src> ...]
+		[-chgrp [-R] GROUP PATH...]
+		[-chmod [-R] <MODE[,MODE]... | OCTALMODE> PATH...]
+		[-chown [-R] [OWNER][:[GROUP]] PATH...]
+		[-copyFromLocal [-f] [-p] [-l] <localsrc> ... <dst>]
+		[-copyToLocal [-p] [-ignoreCrc] [-crc] <src> ... <localdst>]
+		[-count [-q] [-h] <path> ...]
+		[-cp [-f] [-p | -p[topax]] <src> ... <dst>]
+		[-createSnapshot <snapshotDir> [<snapshotName>]]
+		[-deleteSnapshot <snapshotDir> <snapshotName>]
+		[-df [-h] [<path> ...]]
+		[-du [-s] [-h] <path> ...]
+		[-expunge]
+		[-find <path> ... <expression> ...]
+		[-get [-p] [-ignoreCrc] [-crc] <src> ... <localdst>]
+		[-getfacl [-R] <path>]
+		[-getfattr [-R] {-n name | -d} [-e en] <path>]
+		[-getmerge [-nl] <src> <localdst>]
+		[-help [cmd ...]]
+		[-ls [-d] [-h] [-R] [<path> ...]]
+		[-mkdir [-p] <path> ...]
+		[-moveFromLocal <localsrc> ... <dst>]
+		[-moveToLocal <src> <localdst>]
+		[-mv <src> ... <dst>]
+		[-put [-f] [-p] [-l] <localsrc> ... <dst>]
+		[-renameSnapshot <snapshotDir> <oldName> <newName>]
+		[-rm [-f] [-r|-R] [-skipTrash] <src> ...]
+		[-rmdir [--ignore-fail-on-non-empty] <dir> ...]
+		[-setfacl [-R] [{-b|-k} {-m|-x <acl_spec>} <path>]|[--set <acl_spec> <path>]]
+		[-setfattr {-n name [-v value] | -x name} <path>]
+		[-setrep [-R] [-w] <rep> <path> ...]
+		[-stat [format] <path> ...]
+		[-tail [-f] <file>]
+		[-test -[defsz] <path>]
+		[-text [-ignoreCrc] <src> ...]
+		[-touchz <path> ...]
+		[-truncate [-w] <length> <path> ...]
+		[-usage [cmd ...]]
+
+三 : HDFS节点管理
+	3.1 增加新节点
+		1 添加新机器,配置环境
+			[root@node4 ~]# yum -y install java-1.8.0-openjdk-devel
+		
+		2 编辑hosts文件
+			[root@nn01 ~]# vim /etc/hosts
+			192.168.1.64  node4
+		
+		3 设置免密登录
+			[root@node4 ~]# ssh-copy																					
+		
+		4 修改NameNode的slave文件增加node节点
+			[root@nn01 hadoop]# vim etc/hadoop/slaves
+				node4
+		
+		5 拷贝文件
+			[root@nn01 hadoop]# for i in node{1..4}; do rsync -aXSH --delete /usr/local/hadoop ${i}:/usr/local/ & done
+		
+		6 启动新节点,查看状态
+			[root@node4 sbin]# ./hadoop-daemon.sh start datanode			//在新添加节点运行,启动DataNode命令
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin -report			//查看集群状态
+				Name: 192.168.1.61:50010 (node1)	
+				Name: 192.168.1.62:50010 (node2)
+				Name: 192.168.1.63:50010 (node3)
+				Name: 192.168.1.64:50010 (node4)
+			
+		7 设置同步带宽,同步数据
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin		//直接回车看可使用命令
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin -setBalancerBandwidth 50000000		//设置同步带宽,单位bytes
+			[root@nn01 hadoop]# ./sbin/start-balancer.sh			//同步数据
+
+	3.2 删除节点
+		1 编辑配置文件
+			[root@nn01 hadoop]# vim etc/hadoop/hdfs-site.xml		//编辑NameNode的hdfs-site.xml文件
+				<property>
+				  <name>dfs.hosts.exclude</name>
+				  <value>/usr/local/hadoop/etc/hadoop/exclude</value>		//指定要删除的节点名称文件
+				</property>
+			[root@nn01 hadoop]# vim etc/hadoop/exclude				//添加要删除的节点名
+			[root@nn01 hadoop]# vim etc/hadoop/slaves		//删除node4
+			
+		2 刷新数据
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin		//查看命令
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin -refreshNodes		//更新数据刷新节点
+			[root@nn01 hadoop]# ./bin/hdfs dfsadmin -report			//查看节点状态
+				Decommission Status : Decommission in progress		//数据正在迁移
+				Decommission Status : Decommissioned					//数据迁移成功(出现这个才能对要删除的节点下线)
+
+四 : YARN节点管理
+	[root@node4 hadoop]# ./sbin/yarn-daemon.sh start nodemanager			//启动节点(添加节点)
+	[root@node4 hadoop]# ./sbin/yarn-daemon.sh stop nodemanager			//删除节点
+		stopping nodemanager
+		
+	[root@node4 hadoop]# ./bin/yarn node -list				// 查看节点状态，还是有node4节点，要过一段时间才会消失
+	19/08/16 14:46:51 INFO client.RMProxy: Connecting to ResourceManager at nn01/192.168.1.60:8032
+	Total Nodes:5
+		     Node-Id	     Node-State	Node-Http-Address	Number-of-Running-Containers
+		 node2:35134	        RUNNING	       node2:8042	                           0
+		 node1:42069	        RUNNING	       node1:8042	                           0
+		 node3:32969	        RUNNING	       node3:8042	                           0
+		 node4:40707	        RUNNING	       node4:8042	                           0
+	
+五 : NFS网关
+	5.1 添加用户
+		[root@nn01 hadoop]# groupadd -g 800 nfsuser
+		[root@nn01 hadoop]# useradd -u 800 -g 800 -r -d /var/hadoop nfsuser
+		[root@nn01 hadoop]# id nfsuser
+		uid=800(nfsuser) gid=800(nfsuser) 组=800(nfsuser)
+		
+		[root@nfsgw ~]# groupadd -g 800 nfsuser
+		[root@nfsgw ~]# mkdir /usr/hadoop
+		[root@nfsgw ~]# useradd -u 800 -g 800 -r -d /var/hadoop nfsuser
+		[root@nfsgw ~]# id nfsuser
+		uid=800(nfsuser) gid=800(nfsuser) 组=800(nfsuser)
+
+	5.2 停止所有服务
+		[root@nn01 hadoop]# ./sbin/stop-all.sh
+		[root@nn01 hadoop]# jps		//查看
+			8394 Jps
+
+	5.3 修改配置
+		[root@nn01 hadoop]# vim etc/hadoop/core-site.xml		//修改配置
+			<configuration>
+			  ......
+			  <property>
+				<name>hadoop.proxyuser.nfsuser.groups</name>		//挂载点用户所使用的组
+				<value>*</value>
+			  </property>
+			  <property>
+				<name>hadoop.proxyuser.nfsuser.hosts</name>			//挂载点主机地址
+				<value>*</value>
+			  </property>
+			</configuration>
+
+	5.4 同步配置到所有主机
+		[root@nn01 hadoop]#  for i in node{1..3}; do rsync -aXSH --delete /usr/local/hadoop/etc \
+								>  ${i}:/usr/local/hadoop & done		//只同步配置文件的命令
+
+	5.5 启动hdfs
+		[root@nn01 hadoop]# ./sbin/start-dfs.sh		//启动集群
+		[root@nn01 hadoop]# jps 		//查看集群
+			9383 NameNode
+			9578 SecondaryNameNode
+			9803 Jps
+		[root@nn01 hadoop]# ./bin/hdfs dfsadmin -report		//查看器群节点
+			Live datanodes (3):
+			Name: 192.168.1.61:50010 (node1)
+			Name: 192.168.1.62:50010 (node2)
+			Name: 192.168.1.63:50010 (node3)
+
+六 : NFSGW配置
+	6.1 环境配置
+		卸载rpcbind  nfs-utils
+			rpm -qa | grep rpcbind
+			rpm -qa | grep nfs
+		配置hosts文件
+			[root@nfsgw ~]# vim /etc/hosts
+				192.168.1.60 nn01
+				192.168.1.61 node1
+				192.168.1.62 node2
+				192.168.1.63 node3
+				192.168.1.65 nfsgw
+		安装JAVA运行环境
+			yum -y install java-1.8.0-openjdk-devel
+
+		同步NameNode的hadoop文件夹到本机
+			[root@nfsgw ~]# rsync -av 192.168.1.60:/usr/local/hadoop /usr/local/
+			
+	6.2 修改配置		
+		配置文件hdfs-site.xml
+			[root@nfsgw hadoop]# vim etc/hadoop/hdfs-site.xml
+			<configuration>
+			......
+			<configuration>
+			  <property>
+				<name>nfs.exports.allowed.hosts</name> 		//共享文档权限(挂载用户)
+				<value>* rw</value>
+			  </property>
+			  <property>
+				<name>nfs.dump.dir</name>		//文件转储目录
+				<value>/var/nfstmp</value>  	//指定文件路径
+			  </property>
+			</configuration>
+			
+		创建文件夹,修改所有权
+			[root@nfsgw hadoop]# mkdir /var/nfstmp
+			[root@nfsgw hadoop]# chown nfsuser:nfsuser /var/nfstmp
+			[root@nfsgw hadoop]# ls -ld /var/nfstmp
+			drwxr-xr-x 2 nfsuser nfsuser 6 8月  16 16:41 /var/nfstmp
+
+	6.3 NFS启动与挂载
+		NFS启动
+			[root@nfsgw logs]# rm -rf /usr/local/hadoop/logs/*
+			[root@nfsgw hadoop]# setfacl -m user:nfsuser:rwx logs/		//设置nfsuser可读权限
+			[root@nfsgw hadoop]# getfacl logs/
+				# file: logs/
+				# owner: root
+				# group: root
+				user::rwx
+				user:nfsuser:rwx
+				group::r-x
+				mask::rwx
+					other::r-x
+			[root@nfsgw hadoop]# ./sbin/hadoop-daemon.sh --script ./bin/hdfs start portmap	//使用root启动portmap
+			[root@nfsgw hadoop]# sudo -u nfsuser ./sbin/hadoop-daemon.sh --script \
+									>  ./bin/hdfs start nfs3	 	//使用nfsuser用户启动nfs3
+			[root@nfsgw hadoop]# jps		//查看状态
+				23076 Portmap
+				23162 Nfs3
+				23213 Jps
+			[root@nfsgw hadoop]# ls logs/		//查看启动日志(有hadoop-nfsuser-nfs3就成功)
+				hadoop-nfsuser-nfs3-nfsgw.log  hadoop-root-portmap-nfsgw.log  SecurityAuth-nfsuser.audit
+				hadoop-nfsuser-nfs3-nfsgw.out  hadoop-root-portmap-nfsgw.out  SecurityAuth-root.audit
+
+		客户端挂载:
+			[root@client ~]# yum -y install nfs-utils		//安装nfs软件
+			[root@client ~]# mount -t nfs -o vers=3,proto=tcp,noacl,nolock,noatime,sync 192.168.1.65:/ /mnt/
+												//	|版本三|协议tcp|禁止acl扩展权限|不支持NLM|禁用access time时间更新
+			[root@client ~]# ls /mnt/
+				111  abc  bcd  ooxx  system  tmp
+
+
+
+
+
+
+
+
+
+

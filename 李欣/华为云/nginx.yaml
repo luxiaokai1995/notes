@@ -1,0 +1,27 @@
+---
+- hosts: web
+  remote_user: root
+  tasks:
+    - copy:
+        src: nginx.service
+        dest: /etc/systemd/system/
+
+    - name: reload
+      shell: systemctl daemon-reload
+
+    - name: install nginx
+      yum:
+        name: nginx
+        state: installed
+
+    - name: change conf
+      lineinfile: 
+        path: /usr/local/nginx/conf/nginx.conf
+        regexp: '^#pid  /usr/'
+        line: 'pid  /usr/local/nginx/logs/nginx.pid;'
+
+    - name: start nginx
+      service:
+        name: nginx
+        enabled: yes
+        state: started

@@ -1,0 +1,199 @@
+++++++++++++++SECURITY 安全与监控(6天)
+监控(Zabbix)
+安全 :  系统常规加固  服务安全  数据安全  网络安全
+
+*********************************************SECURITY*DAY01**************************************
+一 : 监控基础
+	1.1  监控目的 : 报告系统运行情况    提前发现问题
+	1.2  监控资源类别  :  公开数据 (应用服务) 	 私有数据(cpu 内存等)
+	1.3  自动化监控系统: 	CaCti		Nagios 		Zabbix
+	1.4  系统监控命令
+		traceroute (路由追踪)   装包traceroute-2.0.22-2.el7.x86_64
+		iostat (查看磁盘读写速度)	装包  sysstat-10.1.5-13.el7.x86_64
+		swapon -s  (查看交换分区)
+
+二 : Zabbix 简介
+	2.1  高度集成的监控解决方案
+		实现企业级的开源分布式监控
+		C/S模式采集数据
+		B/S模式实现WEB管理
+	2.2  部署运行环境 LNMP
+		yum  install gcc openssl-devel zlib-devel pcre-devel	//安装依赖包
+		tar -xf nginx-1.12.2.tar.gz 		
+		cd nginx-1.12.2/
+		./configure --with-http_ssl_module		//装载ssl模块
+		make   &&  make install
+		yum -y install php php-mysql mariadb mariadb-devel mariadb-server  php-fpm	//安装依赖包
+		vim /usr/local/nginx/conf/nginx.conf		//65-71行  去掉注释(删除69行)
+		/usr/local/nginx/sbin/nginx -s reload		//启动服务
+		systemctl start mariadb
+		systemctl enable mariadb
+  	 	systemctl start php-fpm
+  	 	systemctl enable php-fpm
+  	 	
+三 : 部署Zabbix服务
+	3.1安装源码Zabbix
+		yum -  y  install  net-snmp-devel curl-devel libevent-devel
+		tar  -xf   zabbix-3.4.4.tar.gz
+		cd   zabbix-3.4.4/
+		./configure \
+		--enable-server \ 		//监控服务服务器端
+		--enable-proxy  \		//支持分布式监控
+		--enable-agent  \		//当需要监控本机时安装
+		--with-mysql=/usr/bin/mysql_config \		//支持mysql服务,及路径
+		--with-net-snmp \				//支持SNMP协议(简单的网络管理协议)
+		 --with-libcurl  		//启用使用curl访问
+		 make install
+		ls /usr/local/etc/		//检查
+		ls /usr/local/bin/
+		ls /usr/local/sbin/
+		
+	3.2  初始化准备
+		3.2.1  准备存储数据时的库 ,表 ,及连接用户
+			[root@zabbix-server ~]# mysql
+			MariaDB [(none)]> create database zabbix character set utf8;		//建库
+			MariaDB [(none)]> grant all on zabbix.* to zabbix@'localhost' identified by 'zabbix';		//创建连接用户
+			[root@zabbix-server ~]# cd zabbix-3.4.4/database/mysql/
+			[root@zabbix-server mysql]# mysql -uzabbix -pzabbix zabbix < schema.sql 	//导入数据(有先后顺序)
+			[root@zabbix-server mysql]# mysql -uzabbix -pzabbix zabbix < images.sql 
+			[root@zabbix-server mysql]# mysql -uzabbix -pzabbix zabbix < data.sql
+		3.2.2  上线Zabbix页面
+			cd zabbix-3.4.4/frontends/php/
+			cp -a * /usr/local/nginx/html/		//保证属性不变
+			chmod -R 777 /usr/local/nginx/html/*		//递归修改权限		
+
+	3.3  初始化
+		3.3.1  解决依赖
+			修改nginx配置文件
+				[root@zabbixserver ~]# vim /usr/local/nginx/conf/nginx.conf
+					… …
+					http{
+    						fastcgi_buffers 8 16k;                      //缓存php生成的页面内容，8个16k
+  						fastcgi_buffer_size 32k;                      //缓存php生产的头部信息
+  						fastcgi_connect_timeout 300;                 //连接PHP的超时时间
+    						fastcgi_send_timeout 300;                     //发送请求的超时时间
+    						fastcgi_read_timeout 300;                        //读取请求的超时时间
+					location ~ \.php$ {
+                				root           html;
+                				fastcgi_pass   127.0.0.1:9000;
+                				fastcgi_index  index.php;
+              					 include        fastcgi.conf;
+        					}
+        					
+  		      		yum -y install php-gd php-xml php-ldap		//安装依赖包
+  		 		yum -y install php-bcmath  php-mbstring
+				vim   /etc/php.ini		//修改php文件
+				672  post_max_size = 16M
+				384  max_execution_time = 300
+				394  max_input_time = 300
+				878  date.timezone =Asia/Shanghai
+				
+				/usr/local/nginx/sbin/nginx   -s   stop		//重启服务
+				/usr/local/nginx/sbin/nginx 
+				systemctl    restart    php-fpm
+								
+		3.3.2  打开真机浏览器输入http://192.168.2.5/index.php
+			cat  /usr/local/nginx/html/conf/zabbix.conf.php		//查看安装信息
+	3.4  登录管理页面
+		用户名admin 	密码zabbix
+		修改语言		修改登录密码
+	
+	3.5启动Zabbix监控服务
+		3.5.1  修改主配置文件
+			vim /usr/local/etc/zabbix_server.conf
+				38	LogFile=/tmp/zabbix_server.log	//日志文件
+				85	DBHost=localhost				//主机
+				95	DBName=zabbix					//主机名
+				111	DBUser=zabbix					//用户
+				119	DBPassword=zabbix				//密码
+
+		3.5.2  启动服务
+			useradd zabbix		//不添加zabbix用户会启动失败
+			zabbix_server 		//启动服务命令
+		
+		3.5.3  查看服务信息
+			ss -nulatp | grep 10051	//默认端口		
+		
+四 : Zabbix监控服务
+	4.1  基础监控
+		4.1.1 配置被监控端(客户端)
+			安装Zabbix软件 ,提供Zabbix_agentd服务
+				yum -y install pcre-devel  gcc	//依赖包
+				cd zabbix-3.4.4/
+				./configure --enable-agent		//客户端只需要加载agent模块
+				make install
+				ls /usr/local/etc/				//查看信息
+   	  			ls /usr/local/bin/
+   	  			ls /usr/local/sbin/
+				
+			修改服务的主配置文件
+				vim /usr/local/etc/zabbix_agentd.conf
+				93	Server=127.0.0.1, 192.168.2.5		//允许访问本机agent服务的ip地址,  谁可以监控本机（被动监控模式）
+				134	ServerActive=192.168.2.5:10051	//谁可以监控本机（主动监控模式）
+				30 	LogFile=/tmp/zabbix_agentd.log	//日志文件
+			
+			启动服务
+				useradd zabbix		//创建zabbix用户,没有会启动失败
+				zabbix_agentd		/启动
+				
+			查看服务信息
+				ss -nulatp |  grep 10050 		//查看端口信息
+				ls /tmp/zabbix_agentd.log		//日志文件
+			
+		4.1.2 配置监控服务器 , 管理员登录管理管理界面作如下操作:
+			1.添加监控主机
+				配置-->主机-->创建主机
+				主机名称,可见的名称(自定义)
+				群组(可自定义)
+				ip写要监控的主机ip
+				
+			2. 选择监控模板
+				(主机名)-->模板-->添加-->更新
+
+			3.查看监控数据
+				检测中--> 最新数据-->群组-->主机
+			
+
+	4.2  自定义监控(客户端定义监控命令给监控服务器使用)
+		4.2.1  配置客户端  192.168.2.100
+			启用自定义监控
+				修改配置文件
+					vim /usr/local/etc/zabbix_agentd.conf
+					280	UnsafeUserParameters=1		//启用自定义监控
+					#  Format: UserParameter=<key>,<shell command>		//定义监控命令格式
+					265 Include=/usr/local/etc/zabbix_agentd.conf.d/*.conf	//加载监控命令配置文件目录
+					cd /usr/local/etc/zabbix_agentd.conf.d/		//配置文件目录
+				自定义key
+					vim count.line.passwd.conf		//文件名自定义,要有标示性
+					UserParameter=count.line.passwd,wc -l /etc/passwd | awk '{print $1}'
+				重启服务
+					killall -9 zabbix_agentd
+					zabbix_agentd
+					ss -nulatp | grep zabbix_agentd		//重启成功就有端口
+	
+			测试配置	
+				zabbix_get  -s 127.0.0.1  -p 10050  -k count.line.passwd		//本机测试连环回口,因为没设置允许其他人
+				useradd yaya		//添加用户在测试
+				zabbix_get  -s 127.0.0.1  -p 10050  -k count.line.passwd
+						//-s ip地址	-p  端口		-k 命令
+		4.2.2 配置监控服务器
+		
+		
+		
+		
+		
+		
+		
+		
+
+
+
+
+
+
+
+
+
+
+
+

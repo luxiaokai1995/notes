@@ -1,0 +1,130 @@
+*************************************************RDBMS2*DAY04**************************************************
+MHA集群(MHA软件+mysql一主多从)
+1  MHA介绍
+	是实现MySQL高可用的解决方案
+	
+2  环境准备
+	2.1  安装依赖包(所有主机)
+		cd mha-soft-student 		
+		yum -y install perl-*		//光盘里的
+		yum -y install perl-*		//yum源
+	2.2  配置无密码访问(所有主机)
+		ssh-keygen		//所有主机都要做
+		ssh-copy-id root@192.168.4.51 52 53 57
+	
+3  配置管理主机(192.168.4.57)
+	3.1 安装软件
+		yum -y install mha4mysql-node-0.56-0.el6.noarch.rpm 	//必须先安装node才行,manager依赖于node
+		tar -xf mha4mysql-manager-0.56.tar.gz
+		cd mha4mysql-manager-0.56/
+		perl Makefile.PL
+		make && make install
+	
+	3.2 编辑配置文件
+		mkdir /etc/mha
+		cp /root/mha-soft-student/mha4mysql-manager-0.56/samples/conf/app1.cnf       /etc/mha/
+		vim app1.cnf
+	
+			[server default]
+			manager_workdir=/etc/mha
+			manager_log=/etc/mha/manager.log
+			master_ip_failover_script=/etc/mha/master_ip_failover
+			user=root
+			password=aaa123...A
+			ssh_user=root
+			ssh_port=22
+			repl_user=repluser
+			repl_password=aaa123...A
+			[server1]
+			hostname=192.168.4.51
+			candidate_master=1	
+			[server2]
+			hostname=192.168.4.52
+			candidate_master=1
+			[server3]
+			hostname=192.168.4.53
+
+	
+	3.3 创建故障切换脚本
+		cp/root/mha-soft-student/master_ip_failover  /etc/mha/
+		chmod +x /etc/mha/master_ip_failover
+		vim /etc/mha/master_ip_failover
+		35行 my $vip = '192.168.4.100/24';  # Virtual IP
+		
+	
+4  配置数据库服务器
+	4.1  配置mysql  一主多从结构
+		配置主服务器51
+			指定服务器id,开启binlog日志,授权从服务器登录用户
+		配置从服务器52
+			指定服务器id,指定主服务器指定账户密码,启动slave
+		配置从服务器53
+			指定服务器id,指定主服务器指定账户密码,启动slave
+			
+	4.2  根据管理主机定义配置数据库服务器
+		1  在两台从服务器上添加repluser用户
+			grant replication slave on *.* to repluser@"%" identified by "aaa123...A";		//51 52 53 都要有这个用户,因为主服务器会轮换
+			
+		2  在在两台从服务器开启binlog日志
+			log-bin=db52
+			
+		3  在三台数据库服务器上开启半同步复制
+			plugin-load="rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+			rpl_semi_sync_master_enabled=1
+			rpl_semi_sync_slave_enabled=1
+
+		4  在三台数据库服务器上,禁止删除中继日志文件
+			relay_log_purge=0
+			
+		5  把vip 部署到当前主服务器51上
+			ifconfig eth0:1 192.168.4.100
+			ifconfig
+			
+		6  在三台数据库服务器上添加管理主机使用的root用户show master status;
+			grant all on *.* to root@"%" identified by "aaa123...A";
+			show grants for root@"%";	//查看特定用户权限
+		
+		7  在三台数据库服务器上安装mha_node安装包
+			yum -y install mha4mysql-node-0.56-0.el6.noarch.rpm
+	
+5  测试配置(57上启动)
+	masterha_check_ssh  --conf=/etc/mha/app1.cnf
+		All SSH connection tests passed successfully.
+	masterha_check_repl  --conf=/etc/mha/app1.cnf
+		MySQL Replication Health is OK.
+		
+6  启动管理服务
+	 masterha_manager --conf=/etc/mha/app1.cnf --remove_dead_master_conf --ignore_last_failover
+	 												//删除坏的服务器         //忽略xxx.health文件
+	 masterha_check_status --conf=/etc/mha/app1.cnf		//查看服务状态
+	masterha_stop --conf=/etc/mha/app1.cnf		//停止服务
+
+
+7  测试高可用集群 
+
+8  恢复故障服务器
+	保持数据和主数据库一致,手动配置为新主服务器的从库,再添加到app1.cnf配置文件里
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

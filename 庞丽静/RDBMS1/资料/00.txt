@@ -1,0 +1,138 @@
+把/etc/passwd文件的内容存储到teadb库下的usertab表里，并做如下配置：
+1 在name字段下方添加s_year字段 存放出生年份 默认值是1990
+mysql> alter table usertab add s_year year default 1990 after name;
+
+2 在name字段下方添加字段名sex 字段值只能是gril 或boy 默认值是 boy
+mysql> alter table usertab add sex enum("girl","boy") default "boy" after name;
+
+3 在sex字段下方添加 age字段  存放年龄 不允许输入负数。默认值 是 21
+mysql> alter table usertab add age tinyint(2) unsigned default 21 after sex;
+
+4 把id字段值是10到50之间的用户的性别修改为 girl
+mysql> alter table usertab add id int(2) primary key auto_increment first;
+mysql> update usertab set sex="girl" where id between 10 and 50;
+
+5 统计性别是girl的用户有多少个。
+mysql> select count(*) from usertab where sex="girl";
+
+6 查看性别是girl用户里 uid号 最大的用户名 叫什么。
+mysql> select name,uid from usertab where sex="girl" order by uid desc limit 0,1;
+
+
+7 添加一条新记录只给name、uid 字段赋值 值为rtestd  1000
+   添加一条新记录只给name、uid 字段赋值 值为rtest2d   2000
+mysql> insert into usertab (name,uid) values ("rtestd",1000),("rtest2d",2000);
+
+8 显示uid 是四位数的用户的用户名和uid值。
+mysql> select name,uid from usertab where uid>=1000;
+
+9 显示名字是以字母r 开头 且是以字母d结尾的用户名和uid。 
+mysql> select name,uid from usertab where name like 'r%d';
+
+10  查看是否有 名字以字母a开头 并且是 以字母c结尾的用户。 
+mysql> select count(*) from usertab where name like 'a%c';
+
+11  把gid  在100到500间用户的家目录修改为/root
+mysql> update usertab set shell="/sbin/nologin" where gid between 100 and 500;
+
+12  把用户是  root 、 bin 、  sync 用户的shell 修改为  /sbin/nologin
+mysql> update usertab set shell="/sbin/nologin" where name in ("root","bin","sync");
+
+13   查看  gid 小于10的用户 都使用那些shell
+mysql> select shell from usertab where gid <10;
+
+14   删除  名字以字母d开头的用户。
+mysql> delete from usertab where name like 'd%';
+
+15   查询  gid 最大的前5个用户 使用的 shell
+mysql> select shell,gid from usertab order by gid desc limit 0,5;
+
+16   查看那些用户没有家目录
+mysql> select name from usertab where homedir is null;
+
+17  把gid号最小的前5个用户信息保存到/mybak/min5.txt文件里。 
+mysql> select * from usertab where gid is not null order by gid limit 5 into outfile "/mydata/samllGidInfo.txt";
+
+    使用useradd 命令添加登录系统的用户 名为lucy 
+[root@host52 mydata]# useradd lucy;
+[root@host52 mydata]# cat /etc/passwd | grep lucy
+lucy:x:1001:1001::/home/lucy:/bin/bash
+18  把lucy用户的信息 添加到usertab表里
+insert into usertab (name,password,uid,gid,comment,homedir,shell)values ("lucy","x",1001,1001,"","/home/lucy","/bin/bash");
+
+19  删除表中的 comment 字段
+
+mysql> alter table usertab drop comment;
+
+20  设置表中所有字段值不允许为空
+mysql> delete from usertab where password is null;
+
+mysql> alter table usertab modify name char(50) not null,modify sex enum('girl','boy') not null, modify age tinyint(2) unsigned not null, modify s_year year(4) not null,modify password char(1) not null,modify uid int(2) not null,modify gid int(2) not null,modify homedir char(100) not null,modify shell char(50) not null;
+
+21  删除root 用户家目录字段的值
+mysql> update usertab set homedir="" where name="root";
+
+22  显示 gid 大于500的用户的用户名 家目录和使用的shell
+mysql> select name,homedir,shell from usertab where gid>=500;
+
+23  删除uid大于100的用户记录
+mysql> delete from usertab where uid > 100;
+
+24  显示uid号在10到30区间的用户有多少个。
+mysql> select count(*) from usertab where uid between 10 and 30;
+
+25  显示uid号是100以内的用户使用shell的类型。
+mysql> select shell from usertab where uid<=100 group by shell;
+
+26  显示uid号最小的前10个用户的信息。
+mysql> select * from usertab order by uid limit 10;
+
+27  显示表中第10条到第15条记录     (****)
+mysql> select * from usertab limit 9,6;
+
+28  显示uid号小于50且名字里有字母a  用户的详细信息
+mysql> select * from usertab where uid < 50 and name like '%a%';
+
+29  只显示用户 root   bin   daemon  3个用户的详细信息。
+mysql> select * from usertab where name in ("root","bin","daemon");
+
+30  显示除root用户之外所有用户的详细信息。
+mysql> select * from usertab where name  not in ("root");
+
+31  统计username 字段有多少条记录
+mysql> select count(*) from usertab where name is not null;
+
+32  显示名字里含字母c  用户的详细信息
+mysql> select * from usertab where name like '%c%';
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+33  在sex字段下方添加名为pay的字段，用来存储工资，默认值    是5000.00
+mysql> alter table usertab add pay float(8,2) default 5000.00 not null after sex;
+
+34  把所有女孩的工资修改为10000
+mysql> update usertab set pay=10000;
+
+35  把root用户的工资修改为30000
+mysql> update usertab set pay=30000 where name="root";
+
+给adm用户涨500元工资
+mysql> update usertab set pay=pay+500 where name="adm";
+
+36  查看所有用户的名字和工资
+mysql> select name,pay from usertab;
+
+37  查看工资字段的平均值
+mysql> select avg(pay) from usertab;
+
+38  查看工资字段值小于平均工资的用户 是谁。
+mysql> select name from usertab where pay<(select avg(pay) from usertab);
+      查看女生里谁的uid号最大
+
+mysql> select name from usertab where sex="girl" order by uid desc limit 1;
+
+39  查看bin用户的uid gid 字段的值 及 这2个字段相加的和  
+mysql> select uid,gid,sum(uid+gid) as sum from usertab where name="bin" group by uid,gid;
+--------------------- 
+作者：李俊的博客 
+来源：CSDN 
+原文：https://blog.csdn.net/qq_36441027/article/details/81030848 
+版权声明：本文为博主原创文章，转载请附上博文链接！

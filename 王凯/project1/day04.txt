@@ -1,0 +1,116 @@
+
+宣告   向动态路由邻居通告自身所连接的网段
+
+准备使用动态路由前将路由器的静态路由删除
+三层交换机的默认路由保留
+
+首先在三层交换机配置：
+Switch(config)# router ospf 1	//启动OSPF路由进程
+指定OSPF协议运行的接口和所在的区域
+Switch(config-router)# network 192.168.1.0 0.0.0.255 area 0
+Switch(config-router)# network 192.168.2.0 0.0.0.255 area 0
+Switch(config-router)# network 192.168.3.0 0.0.0.255 area 0
+Switch(config-router)# network 192.168.4.0 0.0.0.255 area 0
+然后在路由器中配置
+Route(config)# router ospf 1	//启动OSPF路由进程
+指定OSPF协议运行的接口和所在的区域
+Route(config-router)# network 192.168.4.0 0.0.0.255 area 0
+
+排错，分别检查三个方面：
+vlan
+ip
+路由
+
+传输层实现了端到端的数据传递
+0～65535  端口总数
+1～1023 常用端口
+
+SYN  想与对方建立连接
+ACK  确认
+FIN  想与对方断开连接
+
+TCP  可靠 ，面向连接，效率低
+UDP  不可靠，无连接，效率高
+
+访问控制列表（ACL）
+读取第三层、第四层 头部信息
+根据预先定义好的规则对数据进行过滤
+对已经建设好的网络，可以通过ACL管理，使网络环境更加健康
+
+标准ACL
+基于源IP地址过滤数据包
+标准访问控制列表的访问控制列表号是1～99
+扩展ACL
+基于源IP地址、目的IP地址、指定协议、端口来过滤数据包
+扩展访问控制列表的访问控制列表号是100～199
+
+192.168.2.1
+255.255.255.0
+
+0.0.0.255
+0.0.0.0
+0严格匹配
+1不匹配
+
+1题  禁止192.168.2.1与192.168.1.1通信，不影响其他数据
+Router(config)#access-list 1 deny 192.168.2.1 0.0.0.0    //拒绝192.168.2.1通过
+Router(config)#access-list 1 permit any    //允许其他所有人通过
+Router(config)# in g0/1	
+Router(config-if)# ip access-group 1 in	   //在接口应用acl
+
+2题 只允许192.168.2.1与192.168.1.1通信
+Router(config)#access-list 2 permit 192.168.2.1 0.0.0.0    //允许192.168.2.1通过
+Router(config)# in g0/1	
+Router(config-if)# ip access-group 2 in	   //在接口应用acl
+
+使用扩展acl限制192.168.2.1访问192.168.1.1的ftp服务
+Router(config)#access-list 100 deny tcp  192.168.2.1 0.0.0.0 192.168.1.1 0.0.0.0 eq 21
+Router(config)# in g0/1	
+Router(config-if)# ip access-group 100 in	   //在接口应用acl
+使用扩展acl限制192.168.2.2访问192.168.1.1的www服务
+Router(config)#access-list 100 deny tcp  192.168.2.2 0.0.0.0 192.168.1.1 0.0.0.0 eq 80
+Router(config)#access-list 100 permit ip any any   //放行其他所有数据
+
+A
+B
+C
+
+IPV4	32位	42亿
+100.0.0.1     20M   3万
+200.0.0.1
+
+NAT 网络地址转换，可以将内部私有ip转换为外部公有ip
+
+私有ip地址范围
+A  10.0.0.0～10.255.255.255
+B  172.16.0.0～172.31.255.255
+C  192.168.0.0～192.168.255.255
+
+
+IPV6	128位
+
+
+2，配置静态nat转换
+Router(config)#ip nat inside source static 192.168.1.1 100.0.0.2
+Router(config)#ip nat inside source static 192.168.1.2 100.0.0.3
+
+Router(config)#interface g0/1
+Router(config-if)#ip nat outside
+Router(config)#interface g0/0
+Router(config-if)#ip nat inside
+
+静态   一对一    服务器发布服务时才使用
+PAT  一对多    端口多路复用，通常只用来访问外网
+
+使用PAT技术，让内网所有主机利用外网接口的公网地址出门
+首先使用acl定义内部ip地址
+Router(config)#access-list 1 permit any
+使用pat复用外网接口地址
+Router(config)#ip nat inside source list 1 interface g0/1 overload                                
+
+
+
+
+
+
+

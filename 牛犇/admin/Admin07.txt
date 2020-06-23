@@ -1,0 +1,363 @@
+图形添加一块硬盘为80G
+[root@server0 ~]# lsblk 
+NAME   SIZE  TYPE  MOUNTPOINT
+vda     10G   disk 
+└─vda1   10G   part  /
+vdb      10G   disk 
+vdc      80G   disk 
+[root@server0 ~]# ls  /dev/vdc
+
+综合分区:
+划分三个主分区10G,一个扩展分区,二个逻辑分区10G
+[root@server0 ~]# fdisk  /dev/vdc
+   n 创建主分区----->回车----->回车---->回车----->在last结束时 +10G
+         连续划分三个主分区
+   p 查看分区表
+   n 创建扩展分区 
+          ----->回车---->起始回车----->结束回车   将所有空间给扩展分区
+   p 查看分区表
+   n 创建逻辑分区----->起始回车------>结束+10G
+   n 创建逻辑分区----->起始回车------>结束+10G
+   p 查看分区表
+   w 保存并退出
+[root@server0 ~]# lsblk 
+[root@server0 ~]# ls /dev/vdc[1-6]
+
+###################################################
+LVM逻辑卷
+     作用:1.整合分散的空间     2.空间可以扩大            
+
+– 零散空闲存储 ---- 整合的虚拟磁盘 ---- 虚拟的分区
+
+   将众多的物理卷(PV),组建成卷组(VG),再从卷组中划分逻辑卷(LV)
+
+LVM管理工具集
+	功能 			物理卷管理 	卷组管理 		逻辑卷管理
+	Scan 扫描 	pvs		     vgs 		lvs
+	Create 创建 	pvcreate 	vgcreate 	lvcreate
+	Display 显示 	pvdisplay 	vgdisplay 	lvdisplay
+	Remove 删除 	pvremove 	vgremove 	lvremove
+	Extend 扩展 	/                       vgextend 	lvextend
+
+###################################################
+创建逻辑卷
+1.创建卷组
+   命令格式: vgcreate  卷组名    分区设备路径......
+
+[root@server0 ~]# vgcreate systemvg /dev/vdc[1-2]
+[root@server0 ~]# pvs     #查看物理卷基本信息
+[root@server0 ~]# vgs     #查看卷组基本信息
+
+2.创建逻辑卷
+   命令格式: lvcreate -n 逻辑卷名  -L  大小    基于的卷组名
+[root@server0 ~]# lvcreate -n mylv -L 16G systemvg 
+[root@server0 ~]# vgs
+[root@server0 ~]# lvs     #查看逻辑卷基本信息
+
+3.使用逻辑卷
+[root@server0 ~]# ls /dev/dm-0
+[root@server0 ~]# ls /dev/systemvg/mylv 
+[root@server0 ~]# ls -l /dev/systemvg/mylv
+
+[root@server0 ~]# mkfs.xfs /dev/systemvg/mylv
+[root@server0 ~]# blkid /dev/systemvg/mylv
+[root@server0 ~]# vim /etc/fstab 
+ /dev/systemvg/mylv  /nsd  xfs  defaults  0 0
+
+[root@server0 ~]# mkdir /nsd
+[root@server0 ~]# mount -a
+[root@server0 ~]# df -h
+#################################################
+逻辑卷扩大
+
+一  卷组有足够的剩余空间                      
+1.空间的扩展
+[root@server0 ~]# lvs
+[root@server0 ~]# vgs 
+[root@server0 ~]# lvextend -L 18G /dev/systemvg/mylv 
+[root@server0 ~]# lvs  
+                                 
+2.文件系统的扩展
+   扩展xfs文件系统命令: xfs_growfs 
+   扩展ext4文件系统命令: resize2fs 
+
+[root@server0 ~]# df -h
+[root@server0 ~]# xfs_growfs /dev/systemvg/mylv 
+[root@server0 ~]# df -h
+
+二 卷组没有足够的剩余空间
+1.先扩展卷组的空间
+[root@server0 ~]# vgextend systemvg /dev/vdb
+[root@server0 ~]# vgs
+2.逻辑卷空间的扩展
+[root@server0 ~]# lvs
+[root@server0 ~]# vgs 
+[root@server0 ~]# lvextend -L 25G /dev/systemvg/mylv 
+[root@server0 ~]# lvs  
+                                 
+2.逻辑卷文件系统的扩展
+[root@server0 ~]# df -h
+[root@server0 ~]# xfs_growfs /dev/systemvg/mylv 
+[root@server0 ~]# df -h
+
+###################################################
+补充: 逻辑卷也支持缩减
+     ext4文件系统支持缩减
+     xfs文件系统不支持缩减
+##################################################
+卷组划分空间的单位   PE
+
+[root@server0 ~]# vgdisplay systemvg #显示卷组详细信息
+
+     PE Size               4.00 MiB
+
+
+ 请划分一个大小为250M的逻辑卷
+[root@server0 ~]# vgchange -s 1M systemvg   #修改PE大小
+[root@server0 ~]# vgdisplay systemvg      #查看详细信息
+[root@server0 ~]# lvcreate -n lvtest -L 250M systemvg 
+[root@server0 ~]# lvs
+
+ 请划分一个为800个PE大小的逻辑卷   -l:指定PE的个数
+[root@server0 ~]# lvcreate -n lvnsd -l 800 systemvg
+[root@server0 ~]# lvs
+###################################################
+逻辑卷的删除
+  删除卷组前提:基于该卷组创建的,所有逻辑卷都要删除
+
+[root@server0 ~]# lvremove /dev/systemvg/lvnsd 
+Do you really want to remove active logical volume lvnsd? [y/n]: y
+  Logical volume "lvnsd" successfully removed
+[root@server0 ~]# 
+
+[root@server0 ~]# lvremove /dev/systemvg/lvtest 
+Do you really want to remove active logical volume lvtest? [y/n]: y
+  Logical volume "lvtest" successfully removed
+
+
+[root@server0 ~]# lvremove /dev/systemvg/mylv 
+  Logical volume systemvg/mylv contains a filesystem in use.
+[root@server0 ~]# umount /nsd/
+[root@server0 ~]# lvremove /dev/systemvg/mylv 
+Do you really want to remove active logical volume mylv? [y/n]: y
+  Logical volume "mylv" successfully removed
+[root@server0 ~]# lvs
+[root@server0 ~]# vgs
+##################################################
+find高级使用
+
+– find [目录] [条件1] [-a|-o] [条件2] ...
+
+– 常用条件表示:                                     
+	-type 类型(f、d、l)
+	-name "文档名称"
+	-size +|-文件大小(k、M、G)
+	-user 用户名
+	-mtime 根据文件修改时间
+
+###############################################
+	-type 类型(f文本文件、d目录、l快捷方式)
+[root@server0 /]# find /boot  -type l
+[root@server0 /]# ls -l /boot/grub/menu.lst
+
+[root@server0 /]# find /boot  -type d
+[root@server0 /]# find /boot  -type f
+
+[root@server0 /]# find /root  -type d
+[root@server0 /]# find /root  -type f
+
+	-name '文档名称'
+[root@server0 /]# find /etc/  -name  '*tab'
+[root@server0 /]# find /etc/  -name  'passwd'
+[root@server0 /]# find /etc/  -name  'passwd*'
+
+[root@server0 /]# find /etc/  -name  '*.conf'
+
+[root@server0 /]# find /boot  -name  'vm*'
+
+[root@server0 /]# mkdir /root/nsd01
+[root@server0 /]# mkdir /root/nsd02
+[root@server0 /]# touch /root/nsd03.txt
+
+[root@server0 /]# find  /root/  -name  'nsd*'
+[root@server0 /]# find  /root/  -name  'nsd*'  -type f
+[root@server0 /]# find  /root/  -name  'nsd*'  -type d
+
+两个条件满足其一即可
+[root@server0 /]# find /root/ -name 'nsd*' -o -type d 
+
+
+	-size +|-文件大小(k、M、G)
+
+[root@server0 /]# find /boot/ -size +10M
+[root@server0 /]# ls -lh /boot/initramfs-*
+
+[root@server0 /]# find /boot/ -size -10M 
+
+	-mtime 根据文件修改时间(都是过去时间)
+                    +10:十天之前
+                    -10:最近十天之内
+
+[root@server0 /]# find /var/   -mtime +90
+[root@server0 /]# find /var/   -mtime +1000
+[root@server0 /]# find /root/   -mtime -2
+
+	-user 用户名
+
+[root@server0 /]# find  /home  -user student
+[root@server0 /]# ls -l  /home
+
+
+[root@server0 /]# find  /  -user student
+[root@server0 /]# ls -l /var/spool/student
+
+
+#################################################
+
+find扩展使用
+• 使用find命令的 -exec 操作
+– find .. .. -exec 处理命令 {} \;
+– 优势:以 {} 代替每一个结果,逐个处理,遇 \; 结束
+
+]# find /boot/ -size +10M
+]# find /boot/ -size +10M  -exec  cp  {}  /opt/  \; 
+]# ls /opt/
+
+]# find / -user student  -type f  -exec cp {} /opt  \;
+]# ls -A /opt/
+
+]# find /boot/ -name 'vm*'  
+]# find /boot/ -name 'vm*'  -exec  cp  {}  /opt/  \; 
+]# ls -A /opt/
+
+##################################################
+NTP时间同步
+
+[root@server0 /]# date    #查看系统时间 
+[root@server0 /]# date -s '2000-10-1  12:10:08'
+
+[root@server0 /]# date
+[root@server0 /]# date -s  '年-月-日    时:分:秒'   #修改时间格式
+
+
+NTP网络时间协议
+• Network Time Protocol
+– NTP服务器为客户机提供标准时间
+– NTP客户机需要与NTP服务器保持沟通
+
+NTP时间服务器:虚拟机classroom
+
+NTP客户机:虚拟机server
+1.安装chrony软件包,与时间服务器沟通软件
+[root@server0 /]# yum -y install chrony
+[root@server0 /]# rpm -q chrony
+
+[root@server0 /]# rpm  -ql chrony
+/etc/NetworkManager/dispatcher.d/20-chrony
+/etc/chrony.conf
+
+2.修改配置/etc/chrony.conf,指定时间服务器位置
+[root@server0 /]# vim  /etc/chrony.conf   
+ 以#开头的为注释行
+
+ #server 0.rhel.pool.ntp.org iburst
+ #server 1.rhel.pool.ntp.org iburst
+ #server 2.rhel.pool.ntp.org iburst
+ server classroom.example.com  iburst   #指定服务端位置
+
+3.重启服务(程序)
+[root@server0 /]# systemctl  restart chronyd 
+[root@server0 /]# systemctl  enable chronyd   #开机自启动
+
+ daemon
+  英 [ˈdiːmən] 美 [ˈdiːmən]
+  (古希腊神话中的)半神半人精灵
+  守护进程
+
+4.验证:
+[root@server0 /]# date -s '2000-1-1  1:1:1'
+2000年 01月 01日 星期六 01:01:01 CST
+[root@server0 /]# systemctl restart chronyd
+[root@server0 /]# date
+2000年 01月 01日 星期六 01:01:58 CST
+[root@server0 /]# date
+2019年 05月 09日 星期四 16:19:00 CST
+
+###################################################
+grep补充
+	^$:匹配空行
+
+[root@server0 /]# grep ^root /etc/passwd
+[root@server0 /]# grep bash$  /etc/passwd
+
+ 显示/etc/login.defs文件有效信息(去除注释  去除空行)
+]# grep -v ^# /etc/login.defs
+]# grep -v ^# /etc/login.defs | grep   -v ^$
+]# grep -v ^# /etc/login.defs | grep   -v ^$  >  /opt/1.txt
+
+################################################
+修改用户家目录                                                    
+[root@server0 /]# useradd tom
+[root@server0 /]# id tom
+[root@server0 /]# grep tom /etc/passwd
+
+[root@server0 /]# usermod -d  /opt/abc  tom
+[root@server0 /]# grep tom /etc/passwd
+
+[root@server0 /]# grep tom /etc/passwd
+[root@server0 /]# ls /opt/abc    #默认没有创建该用户的家目录
+
+[root@server0 /]# cp -r /home/tom  /opt/abc
+[root@server0 /]# chown -R tom:tom /opt/abc
+[root@server0 /]# su - tom
+
+[tom@server0 ~]$ exit
+###################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

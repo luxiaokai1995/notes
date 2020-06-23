@@ -1,0 +1,78 @@
+案例7：实现本机server0 的防火墙配置
+  1）修改虚拟机 server0防火墙配置，将默认区域修改为public
+  2）修改虚拟机 server0防火墙配置，在public区域中添加http协议,实现永久配置
+  3）在虚拟机 desktop0上测试能否访问server0 的Web服务
+
+案例8:在server上操作,验证端口转发策略
+– 从desktop0上访问server0的5423端口，与访问server0的80端口效果一样
+
+
+
+案例8：发布iSCSI网络磁盘
+
+ 1）配置 server0 提供 iSCSI 服务，要求如下：
+ 2）磁盘名为iqn.2016-02.com.example:server0
+ 3）服务端口为 3260
+ 4）使用 iscsi_store（后端存储的名称） 作其后端卷，其大小为 3GiB
+ 5）此磁盘服务只能被 desktop0.example.com 访问，在Server0上配置客户端ACL为iqn.2016-02.com.example:desktop0
+ 6）配置虚拟机desktop0 使用 虚拟机server0 提供 iSCSI 服务
+
+
+
+案例4:在server上操作，搭建mariadb数据库系统
+1. 在 server0 上安装 MariaDB 数据库系统
+1)安装 mariadb-server软件包
+2)启动 mariadb 服务
+
+
+案例5:在server上操作，配置一个数据库
+– 为mariadb数据库root设置登陆密码为 haxi
+– 新建一个数据库名为 nsd
+– 除了 root 用户,此数据库只能被用户 lisi 查询,此用户的密码为 123(用户的授权)
+– 数据库 nsd 中应该包含来自数据库复制的内容,(数据库导入数据)
+数据库文件的 URL为:http://classroom/pub/materials/users.sql
+
+
+
+案例6:在server上操作，使用数据库查询
+
+1)查询base表所有内容
+2)查询location表所有内容
+3)查询base表的结构
+4)查询location表的结构
+5)查询base表内容,只显示name字段
+6)查询mysql表内容,只显示user,host,password字段
+7)密码是 solicitous 的人的名字?
+8)有多少人的姓名是 Barbara 同时居住在 Sunnyvale?
+9)在base表中追加记录  id为6，name为Barbara，password为900
+10)在location表中追加记录  id为6，city为Sunnyvale
+11)再次查询有多少人的姓名是 Barbara 同时居住在 Sunnyvale?
+
+
+
+案例2:配置nfs文件夹共享，防火墙默认区域设置为trusted
+  在 server0 上发布共享文件夹
+  1）搭建nfs共享，实现共享本机/public
+  2）共享给所有人可以访问，并且具备只读权限
+
+  在 desktop0 上访问共享文件夹
+  1）访问 server0 上发布共享/public,
+  2）实现开机自动挂载到/mnt/test
+
+
+
+
+
+
+案例4：为虚拟机 server 部署动态WSGI站点
+为站点 webapp0.example.com 配置提供动态Web内容，要求如下：
+1）此虚拟主机侦听在端口8909
+2）测试网页从以下地址下载，不要作任何更改http://classroom/pub/materials/webinfo.wsgi 
+3）从浏览器访问 http://webapp0.example.com:8909 可接收到动态生成的 Web 页面
+
+
+案例5：配置安全Web服务
+为站点 http://www0.example.com 配置TLS加密 
+1）一个已签名证书从以下地址获取 http://classroom/pub/tls/certs/server0.crt 
+2）此证书的密钥从以下地址获取 http://classroom/pub/tls/private/server0.key 
+3）此证书的签名授权信息从以下地址获取 http://classroom/pub/example-ca.crt

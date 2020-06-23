@@ -1,0 +1,78 @@
+﻿一、Linux系统简介
+1.什么是Linux?
+Linux是一种操作系统，主要用在企业服务器上面
+2.Linux系统内核
+版本号:主版本.次版本.修订号
+3.RedHat系列版本
+– Red Hat Enterprise Linux（RHEL） 5/6/7
+– CentOS
+–Fedora Core社区版
+
+二、安装Linux系统
+1.Linux 一切皆文件
+  Linux严格区分大小写
+2.Linux磁盘表示
+/dev/xdy
+/dev	表示/dev目录
+xd	hd	ide接口硬盘
+	sd	非ide接口硬盘（SATA、SCSI）
+	vd	虚拟机磁盘
+y	a	第一块硬盘
+	b	第二块硬盘
+	c	第三块硬盘
+	...
+3.Linux管理员 root
+
+三、命令行基本操作
+1.Linux虚拟控制台
+tty1 ~ tty6
+tty1 		图形
+tty2~tty6	字符
+切换：
+图形切换到字符	ctrl+alt+(F2~F6)
+字符之间切换	alt+(F2~F6)
+字符到图形	alt+F1
+2.Linux命令行提示符
+[登录用户@主机名 工作目录] 身份标识
+# 代表管理员
+$ 代表普通用户
+3.Linux基本命令
+# pwd		//显示当前工作目录
+# cd		//切换路径
+# ls		//列出目录内容/文件权限
+# cat		//查看文件内容
+# lscpu		//查看cpu信息
+# cat /proc/meminfo	//查看内存信息
+# hostname		//查看主机名
+# ifconfig		//查看ip地址
+# mkdir			//创建目录
+# touch			//创建文件
+# less			//查看大文件内容分屏查看
+# head			//默认查看文件头10行
+# tail			//默认查看文件尾10行
+# grep			//过滤包含关键字的行
+# nmtui			//配置网络参数（ip地址、子网掩码、网关、dns、主机名）
+# poweroff		//关机
+# reboot		//重启
+	
+编辑命令或路径的技巧：　Tab可以进行补全       
+[root@nsd1903 ~]# if(tab)(tab)
+if         ifdown     ifup
+ifcfg      ifenslave  
+ifconfig   ifstat     
+[root@nsd1903 ~]# ifco(tab)
+
+[root@nsd1903 ~]# cat /et(tab)/red(tab)
+CentOS Linux release 7.5.1804 (Core)
+ 
+]# ls /etc/sysconfig/network-scripts/ifcfg-eth0 
+
+]# ls /et(tab)/sysco(tab)/netw(tab)-(tab)/ifc(tab)-e(tab)
+
+
+
+
+
+
+
+

@@ -1,0 +1,82 @@
+****************************************************CLOUD*DAY03**********************************************
+一 : 
+	项目 : 一组隔离的资源与对象,由一组关联的用户进行管理(一般一个项目对应一个企业)
+	云主机类型 : 就是资源模板
+重置非管理员用户密码 : 
+	[root@openstack ~]# source keystonerc_admin		//命令行登录
+	[root@openstack ~(keystone_admin)]# openstack user set --password redhat nsd1904
+
+二 : 管理
+	创建项目
+		身份管理-->项目-->创建项目
+	
+	创建用户
+		身份管理-->用户-->创建用户-->(角色选member)(nsd1904)
+	
+	创建云主机类型
+		管理员-->云主机类型-->创建云主机类型
+
+	创建镜像
+		管理员-->镜像-->创建镜像(格式要一致)
+
+	创建网络
+		管理员-->网络-->创建网络-->(共享的及外部网络要打开)
+
+三 : 客户端(项目管理用户)管理
+	登录nsd1904
+	创建网络
+		项目-->网络-->网络拓扑-->创建网络(共享的关闭)(网关一般选网段最后一个)
+	创建主机
+		项目-->计算-->云主机数量-->创建云主机
+			若出现云主机处于错误状态(No vaild host was found.)
+				解决办法：
+				可能是主机down掉
+				可能是内存不足
+				可能是内网出现了问题，检查内网，或者把内网删除（不会建立的可以参考案例4），重新建立，之后重新启动openstack
+			[root@openstack ~]# systemctl restart openstack-nova-compute
+				1006 报错: 
+			[root@nova01 ~]# grep  vncserver_proxyclient_address /etc/nova/nova.conf
+				# Deprecated group;name - DEFAULT;vncserver_proxyclient_address
+				#vncserver_proxyclient_address=127.0.0.1
+				vncserver_proxyclient_address=nova01
+			复制nova01写到nova  /etc/hosts文件下
+	创建浮动IP
+		项目-->计算-->访问安全-->浮动IP-->创建浮动IP-->绑定到主机
+		项目-->计算-->访问安全-->安全组-->创建安全组
+		项目-->计算-->云主机数量-->主机列最后下拉菜单-->编辑安全组
+			做完这几步后物理机可以ping同云主机(用浮动ip)
+
+四 : 节点扩容 
+	环境准备:
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

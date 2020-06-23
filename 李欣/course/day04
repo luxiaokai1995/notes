@@ -1,0 +1,213 @@
+***********************************************COURSE*DAY04*************************************************
+一 : kibana安装
+	是一款图形化查看软']                                            
+
+	[root@kibana ~]# vim /etc/hosts			
+		192.168.1.51 es1
+		192.168.1.52 es2
+		192.168.1.53 es3
+		192.168.1.54 es4
+		192.168.1.55 es5
+		192.168.1.56 kibana
+	[root@kibana ~]# vim /etc/yum.repos.d/local.repo   //配置yum源
+		[elk]
+		name=CentOS-$releasever - elk
+		baseurl="ftp://192.168.1.254/elk"
+		enabled=1
+		gpgcheck=0
+	[root@kibana ~]# yum -y install kibana
+	[root@kibana ~]# vim /opt/kibana/config/kibana.yml		//修改配置文件 
+		  2 server.port: 5601	//若把端口改为80，可以成功启动kibana，但ss时没有端口，没有监听80端口，服务里面写死了，不能用80端口，只能是5601这个端口
+ 		  5 server.host: "0.0.0.0"		//服务器监听地址
+		 15 elasticsearch.url: "http://192.168.1.51:9200"		//配置了hosts文件可以写主机名,声明地址，从哪里查
+		 23 kibana.index: ".kibana"		//kibana自己创建的索引,名字
+		 26 kibana.defaultAppId: "discover"	//打开kibana页面时，默认打开的页面discover		
+		 53 elasticsearch.pingTimeout: 1500		//ping检测超时时间
+		 57 elasticsearch.requestTimeout: 30000		//请求超时
+		 64 elasticsearch.startupTimeout: 5000		//启动超时
+
+	[root@kibana ~]# systemctl start kibana
+	[root@kibana ~]# ss -nulatp | grep 5601
+
+	浏览器访问192.168.1.56:5601 查看状态
+
+
+二 : logstash 配置
+	是一个数据采集,加工处理及传输的工具
+	logstash类型及条件判断
+		类型:
+			布尔值类型: 	ssl_enable => true
+			字节类型:		bytes => "1MIB"
+			字符串类型: 	name => "xkops"
+			数值类型: 		port => 22
+			数组:			match => ["datetime","UNIX"]
+			哈希:			options => {k => "v",k2 => "v2"}
+			编码解码:		codec => "json"
+			路径: 			file_path => "/tmp/filename"
+			注释:			#
+		条件判断:
+			等于:			==
+			不等于:			!=
+			小于:			<
+			大于:			>
+			小于等于:		<=
+			大于等于:		>=
+			匹配正则:		=~
+			不匹配正则:		!~
+		条件判断:
+			包含:			in
+			不包含:			not in
+			与:				and
+			或:				or
+			非与:			nand
+			非或:			xor
+			复合表达式:		()
+			取反符合:		!()
+		[root@logstash ~]# vim /etc/yum.repos.d/local.repo
+			[local_reo]
+			name=CentOS-$releasever- Base
+			baseurl="ftp://192.168.1.254/elk"
+			enabled=1
+			gpgcheck=0
+
+		[root@logstash ~]# yum -y install java-1.8.0-openjdk
+		[root@logstash ~]# yum -y install logstash
+		[root@logstash ~]# vim /etc/hosts
+			192.168.1.51 es1
+			192.168.1.52 es2
+			192.168.1.53 es3
+			192.168.1.54 es4
+			192.168.1.55 es5
+			192.168.1.56 kibana
+			192.168.1.57 web
+			192.168.1.58 logstash
+		[root@logstash ~]# /opt/logstash/bin/logstash-plugin  list		//查看已安装插件
+	2.1 编写配置文件
+		codec类插件常用插件:
+			plain  json  json_lines   rubydebug  multiline
+		2.1.1  codec类:output rubydebug插件
+			[root@logstash bin]# vim /etc/logstash/logstash.conf 
+				input{
+				  stdin{codec => "json" }		//数据输入,加载json模块(输入json格式)
+				}
+
+				filter{  }							//数据处理
+
+				output{
+				  stdout{ codec => "rubydebug" }		//数据输出,加载调试模块(输出json格式)
+				}
+
+			[root@logstash ~]# /opt/logstash/bin/logstash -f /etc/logstash/logstash.conf 		//启动服务
+		2.1.2 codec类: input file插件
+			[root@logstash bin]# vim /etc/logstash/logstash.conf 
+			input{
+			  file {			//用file模块
+				path => ["/tmp/a.log","/var/log/b.log"]		//监控文件列表
+				type => "testlog"									//类型名称,输出时添加,标签,便于识别
+				start_position => "beginning"					//配置第一次读取文件从什么地方开始,默认从结尾开始(易丢失数据)
+				sincedb_path => "/var/lib/logsyash/sincedb-access"	//记录读取文件的位置(默认在用户家目录,多用户时不方便,易丢数据)
+			  }
+			}
+
+			filter{  }
+
+			output{
+			  stdout{ codec => "rubydebug" }
+			}
+			[root@logstash ~]# /opt/logstash/bin/logstash -f /etc/logstash/logstash.conf 		//启动服务
+
+		2.1.3 codec类: filter grok插件
+					解析各种非结构化的日志数据文件
+					grok使用正则表达式把非结构化的数据结构化
+					适用性强,几乎可用于各类数据
+					grok{
+						 match => ["message", (?<key>reg), "%{IP:clientip}"]
+					}
+			
+			[root@logstash ~]# vim /etc/logstash/logstash.conf
+				input{
+				  file {
+					path => ["/tmp/a.log"]
+					type => "testlog"
+					start_position => "beginning"
+					sincedb_path => "/dev/null"
+				  }
+				}
+				filter{
+				  grok {
+						match => { "message" => "%{COMBINEDAPACHELOG}" }	//COMBINEDAPACHELOG为官方写好的模本,适用性差
+					  }
+				 }
+				output{
+				  stdout{
+				  codec => "rubydebug"
+				  }
+				}
+						//COMBINEDAPACHELOG为官方写好的模本,适用性差,全部的在下面文件里
+				[root@logstash bin]# vim /opt/logstash/vendor/bundle/jruby/1.9/gems/logstash-patterns-core-2.0.5
+				/patterns/grok-patterns
+
+		2.1.4 codec类 filebeat插件(监控其他机器)
+			被监控主机:
+				[root@web ~]# vim /etc/yum.repos.d/local.repo
+					[local_rep]
+					name=CentO-$releasever - Base
+					baseurl="ftp://192.168.1.254/elk"
+					enabled=1
+					gpgcheck=0
+				[root@web ~]# yum -y install filebeat
+				[root@web ~]# vim /etc/filebeat/filebeat.yml		
+						14       paths:
+						15         - /var/log/httpd/access_log 		//日志的路径，短横线加空格代表yml格式		
+						72    document_type: apachelog 			//文档类型(名称自定义.有标示性)
+						183   #elasticsearch:		//加上注释	
+						188   #hosts: ["localhost:9200"]			//加上注释	
+						278   logstash:		//去掉注释	
+						280   hosts: ["192.168.1.58:5044"]		//去掉注释,logstash那台主机的ip
+				[root@web ~]# systemctl start filebeat
+				[root@logstash logstash]# vim /etc/logstash/logstash.conf
+					input{
+						 stdin {codec => "json"}
+						 beats {
+							  port => 5044
+					}
+					}
+
+					filter{
+					if [type] == "apachelog" {			//配置文件定义的apachelog
+					  grok {
+							match => { "message" => "%{COMBINEDAPACHELOG}" }			//利用官方写好的
+						  }}
+					 }
+
+					output{
+					  stdout{codec => "rubydebug" }
+					  if [type] == "apachelog"{
+					  elasticsearch {
+						 hosts => ["192.168.1.51:9200","192.168.1.52:9200"]
+						 index => "apachelog"
+						 flush_size => 2000
+						 idle_flush_time => 10
+					   }}
+					}
+				[root@logstash ~]#  netstat -antup | grep 5044
+				[root@logstash logstash]# /opt/logstash/bin/logstash -f  /etc/logstash/logstash.conf 				
+				[root@logstash ~]# curl web
+				浏览器访问Elasticsearch，有apachelog
+				[student@room9pc01 ~]$ firefox http://192.168.1.55:9200/_plugin/head
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,210 @@
+静态数据(图片视频音频文档)
+
+动态数据(脚本)
+PHP,java,python,perl,ruby,shell
+
+java{跨平台的开发语言}
+Windows{jdk.JVM  java虚拟机}
+linux{jdk,JVM,java虚拟机}
+MacOS{jdk,JVM,java虚拟机}
+电视盒子l{jdk,JVM,java虚拟机}
+
+tomcat 就是用java写的代码
+
+######################################################
+web虚拟主机:
+
+apache:
+	<viryualhost *:80>
+	servername
+	documentroot
+	</virtualhost>
+nginx:
+	server{
+	listen 80;
+	server_name;
+	root html;
+}
+
+
+
+
+ls /dev/random
+ln -s /dev/urandom  /dev/random	//tomcat启动需要大量随机字符
+
+
+
+tomcat:
+	<engin  ...defaulthost=www.a.com>	//输ip默认打开页面
+	<host name=www.a.com appBase=a>	//appBase=a(路径)
+	</Host>	//与上面对应,首字母大写
+	<host name=www.b.com appBase=b>	//appBase=b(路径)
+	<Context path="" docBase="base"/ >	//指定网页文件路径
+	</Host>	//与上面对应
+	</Eigine> 	//与上面对应
+##########################################################
+二:修改www.b.com网站的首页目录为base
+1）使用docBase参数可以修改默认网站首页路径
+[root@web1 ~]# vim /usr/local/tomcat/conf/server.xml
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+</Host>
+<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+<Context path="" docBase="base"/>
+</Host>
+… …
+[root@web1 ~]# mkdir  /usr/local/tomcat/b/base
+[root@web1 ~]# echo "BASE" > /usr/local/tomcat/b/base/index.html
+[root@web1 ~]# /usr/local/tomcat/bin/shutdown.sh		//关闭tomcat
+[root@web1 ~]# /usr/local/tomcat/bin/startup.sh		//开启tomcat
+
+##################################################
+
+三:跳转
+1）当用户访问http://www.a.com/test打开/var/www/html目录下的页面
+[root@web1 ~]# vim /usr/local/tomcat/conf/server.xml
+	<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+	<Context path="/test" docBase="/var/www/html/" />
+	</Host>
+	<Host name="www.b.com" appBase="b" unpackWARS="true" autoDeploy="true">
+	<Context path="" docBase="base" />
+	</Host>
+
+[root@web1 ~]# echo "Test" > /var/www/html/index.html
+[root@web1 ~]# /usr/local/tomcat/bin/shutdown.sh
+[root@web1 ~]# /usr/local/tomcat/bin/startup.sh
+
+测试查看页面是否正确
+################################################
+ 
+四:配置Tomcat支持SSL加密网站:
+
+1）创建加密用的私钥和证书文件
+[root@web1 ~]# keytool -genkeypair -alias tomcat -keyalg RSA -keystore /usr/local/tomcat/keystore                //提示输入密码为:123456
+//-genkeypair     生成密钥对
+//-alias tomcat     密钥别名
+//-keyalg RSA     定义密钥算法为RSA算法
+//-keystore         定义密钥文件存储在:/usr/local/tomcat/keystore
+
+2)再次修改server.xml配置文件，创建支持加密连接的Connector
+
+
+###############################################################
+五：配置Tomcat日志
+ vim /usr/local/tomcat/conf/server.xml
+
+<Host name="www.a.com" appBase="a" unpackWARS="true" autoDeploy="true">
+<Context path="/test" docBase="/var/www/html/" />
+#从默认localhost虚拟主机中把Valve这段复制过来，适当修改下即可
+<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix=" a_access" suffix=".txt"
+               pattern="%h %l %u %t &quot;%r&quot; %s %b" />
+</Host>
+
+重启Tomcat服务器
+
+
+
+
+
+
+
+
+
+
+
+nginx[代理加软件]
+
+
+varnish代理软件
+varnish[代理加软件]  CDN(content delivery network) 内容分发网络
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

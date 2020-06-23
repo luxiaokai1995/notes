@@ -1,0 +1,94 @@
+192.168.4.5 :nginx服务器
+
+web服务器: (httpd\nginx\lighttpd
+	   tomcat\weblogic\websphere\jboss)
+
+nginx(taobao)-->tengine
+F12  server: taobao (tengine)
+
+
+./configure --help // 帮助 with 安装    without 不安装
+
+netstat命令可以查看系统中启动的端口信息，该命令常用选项如下：
+-a显示所有端口的信息
+-n以数字格式显示端口号
+-t显示TCP连接的端口
+-u显示UDP连接的端口
+-l显示服务正在监听的端口信息，如httpd启动后，会一直监听80端口
+-p显示监听端口的服务名称是什么（也就是程序名称）
+
+相对的是nginx 的安装目录(/usr/local/nginx/)
+index  index.html index.htm; //默认首页,默认页面
+
+
+
+
+
+1)源码安装nginx
+1.安装依赖包 gcc pcre-devel openssl-devel
+2.安全 创建用户
+3.解包 cd
+4.configure  --user --group --prefix --with-名称
+	make make install
+5.升级 手动拷贝nginx ,重启
+
+
+2)默认有一个网站(允许所有人访问)
+	用户认证
+	vim nginx.conf
+	server {
+	auth_basic "字符";
+	auth_basic_user_file "文件";
+	}
+	yum -y install httpd-tools
+	htpasswd -c 文件 用户名
+	>密码
+	nginx -s reload 	//重启
+
+
+3)虚拟主机(做多个网站)域名
+	vim nginx.conf
+	server { 
+		charset utf-8;	//使网站支持中文
+		server_name www.a.com:
+}
+	server { 
+		server_name www.b.com
+}
+	#mkdir /usr/local/nginx/www
+	#echo 内容 > 主页
+	#yum -y install *fonts*
+
+
+4)httpd加密网站
+	对称	123	123
+	非对称	123	abc
+	
+	//机制问题网站不能使用对称加密
+
+	
+cd /usr/local/nginx/conf
+openssl genrsa > cert.key 	//生成私钥
+openssl req -new -x509 -key cert.key > cert.pem      //生成证书
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

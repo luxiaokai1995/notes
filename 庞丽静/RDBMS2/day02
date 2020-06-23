@@ -1,0 +1,236 @@
+*******************************************RDBMS2*DAY02***********************************************
+一:  数据读写分离  (
+	mysql中间件  mycat   mysqlproxy   maxscale
+	1.1相关概念:
+		将读写请求交给代理服务器(mysql中间件)
+		写请求交给主服务器,读请求交给从服务器
+	1.2配置读写分离服务
+		1.2.1配置mysql主从同步结构
+		1.2.2配置读写分离服务57
+			1 安装软件
+				[root@mysql57 ~]# yum -y install maxscale-2.1.2-1.rhel.7.x86_64.rpm
+			2 配置软件
+				[root@mysql57 ~]# vim /etc/maxscale.cnf
+				 [maxscale]
+ 				threads=auto	//线程自动选择
+
+				 [server1]
+  				 type=server
+ 				 address=192.168.4.51		//服务器一
+ 				 port=3306
+				 protocol=MySQLBackend
+  
+ 				 [server2]
+ 				 type=server
+				 address=192.168.4.52		//服务器二
+ 				 port=3306
+ 				 protocol=MySQLBackend
+ 				 
+ 				 [MySQL Monitor]	
+				 type=monitor
+ 				 module=mysqlmon
+ 				 servers=server1,server2		//监视的服务器
+ 				 user=maxscalemon			//使用的用户名
+				 passwd=aaa123...A			//密码
+ 				 monitor_interval=10000
+
+				#[Read-Only Service]		//注释掉,指定只读服务器的
+  				#type=service
+  				#router=readconnroute
+  				#servers=server1
+ 				#user=myuser
+  				#passwd=mypwd
+ 				#router_options=slave
+ 				
+				 [Read-Write Service]		//读写操作 在哪执行
+				 type=service
+				 router=readwritesplit
+				 servers=server1,server2
+				 user=maxscaleroute	//路由用户
+ 				 passwd=aaa123...A	//密码
+  				 max_slave_connections=100%
+				
+				 [Read-Only Listener]	//监听的只读服务器
+ 				 type=listener
+ 				 ervice=Read-Only Service
+				 protocol=MySQLClient
+				 port=4008
+ 
+ 				 [Read-Write Listener] 		//读写服务器监听端口
+				 type=listener
+				 service=Read-Write Service
+				 protocol=MySQLClient
+				 port=4006
+
+				 [MaxAdmin Listener] 		//管理端口
+				 type=listener
+				 service=MaxAdmin Service
+				 protocol=maxscaled
+				 socket=default
+				 port=4016
+		
+			3配置数据库服务器 (51操作)
+				创建监控用户
+					mysql> grant replication slave,replication client on *.* to   maxscalemon@"%" identified by "aaa123...A";
+				创建路由用户
+					mysql> grant select on mysql.* to maxscaleroute@"%" identified by "aaa123...A";
+				从服务器查看
+					mysql> select user from mysql.user where user like'maxscale%';
+					
+			4启动服务
+				[root@mysql57 ~]# maxscale -f /etc/maxscale.cnf		//启动服务
+				[root@mysql57 ~]# ps -C maxscale		//查看进程号
+				[root@mysql57 ~]# ss -nulatp | grep maxscale		//查看端口	(4006和4016端口)
+				/var/log/maxscale/maxscale.log 	//日志文件
+
+			5测试配置
+				[root@mysql57 ~]# maxadmin -uadmin -pmariadb -P4016
+				MaxScale> list servers		//查看是否启动
+				Servers.
+				-------------------+-----------------+-------+-------------+--------------------
+				Server              | Address             | Port     | Connections     | Status              
+				-------------------+-----------------+-------+-------------+--------------------
+				server1            | 192.168.4.51    |  3306 |           0 		| Master, Running
+				server2            | 192.168.4.52    |  3306 |           0 		| Slave, Running
+				-------------------+-----------------+-------+-------------+--------------------
+
+	1.3测试配置
+		1.3.1在主服务器添加访问数据的连接用户
+			[root@mysql51 ~]# mysql -uroot -paaa123...A
+			mysql>  create  database db22;
+			mysql>  grant all  on  *.*  to  yaya99@"%"  identified  by  "aaa123...A";		//添加用户yaya99
+			
+			[root@mysql52 ~]# mysql -uroot -paaa123...A -e "select user from mysql.user"
+			[root@mysql52 ~]# mysql -uroot -paaa123...A -e "show databases"
+			
+			[root@mysql50 ~]# mysql -h"192.168.4.57" -P4006 -uyaya99 -paaa123...A		//使用用户yaya99登录57服务器,-P是端口默认4006
+			mysql> show grants;
+			mysql> select * from db22.t1;
+			mysql> insert into db22.t1 values(2,"haha");
+			mysql> select * from db22.t1;
+			
+		1.3.2 验证57服务器功能
+			在从服务器本机向db22.t1表插入记录,查看db22.t1表
+			[root@mysql52 ~]# mysql -uroot -paaa123...A -e "insert into db22.t1 values(3,'xx')"
+			
+			[root@mysql52 ~]# mysql -uroot -paaa123...A -e "select * from db22.t1"
+				+------+------+
+				| id   | name |
+				+------+------+
+				|    1 | dc      |
+				|    2 | haha |
+				|    3 | xx      |
+				+------+------+
+			[root@mysql51 ~]# mysql -uroot -paaa123...A -e "select * from db22.t1"
+				+------+------+
+				| id   | name |
+				+------+------+
+				|    1 | dc   |
+				|    2 | haha |
+				+------+------+
+				 
+			//////51不同步52的数据,所以有差异/////
+			
+			[root@mysql50 ~]# mysql -h"192.168.4.57" -P4006 -uyaya99 -paaa123...A -e "insert into db22.t1 values(4,'kk')"
+			[root@mysql51 ~]# mysql -uroot -paaa123...A -e "select * from db22.t1"
+				+------+------+
+				| id   | name |
+				+------+------+
+				|    1 | dc      |
+				|    2 | haha |
+				|    4 | kk     |
+				+------+------+
+			[root@mysql52 ~]# mysql -uroot -paaa123...A -e "select * from db22.t1"
+				+------+------+
+				| id   | name |
+				+------+------+
+				|    1 | dc      |
+				|    2 | haha |
+				|    3 | xx      |
+				|    4 | kk      |  
+				+------+------+
+
+
+二: mysql多实例
+	2.1   什么是多实例:  一台服务器运行多个数据库
+		为什么要使用多实例:    节约运营成本  ,提高硬件利用率
+	2.2  配置mysql多实例
+			[root@room9pc01 mysql]# scp mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz root@192.168.4.57:/root/	//解压
+			[root@mysql57 ~]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql	//移动安装
+		修改配置文件
+			[root@mysql57 mysql]# mv /etc/my.cnf /root/	//需要新建
+			[root@mysql57 mysql]# vim /etc/my.cnf
+				[mysqld_multi]		//指定多实例
+				mysqld = /usr/local/mysql/bin/mysqld_safe		//指定进程文件路径
+				mysqladmin = /usr/local/mysql/bin/mysqladmin	//指定管理命令路径
+				user = root									//指定进程用户
+				
+				[mysqld1]					//实例进程名称
+				port = 3307					//端口
+				datadir = /dir1				//数据库目录
+				log-error = /dir1/mysql.err		//错误日志文件
+				pid-file = /dir1/mysql.pid		//pid号
+				socket = /dir1/mysql.sock		//指定sock文件路径和名称
+
+				[mysqld2]
+				port = 3308
+				datadir = /dir2
+				log-error = /dir2/mysql.err
+				pid-file = /dir2/mysql.pid
+				socket = /dir2/mysql.sock
+
+				[mysqld3]
+				port = 3309
+				datadir = /dir3
+				log-error = /dir3/mysql.err
+				pid-file = /dir3/mysql.pid
+				socket = /dir3/mysql.sock
+		
+		启动服务 :  
+			[root@mysql57 mysql]# /usr/local/mysql/bin/mysqld_multi start 1		//启动第一个
+			[root@mysql57 dir1]# /usr/local/mysql/bin/mysql -uroot -pInRJbBEAn3?O -S /dir1/mysql.sock		初始密码登录
+			mysql> alter user root@"localhost" identified by "aaa123...A";
+			[root@mysql57 dir1]# /usr/local/mysql/bin/mysql -uroot -paaa123...A -S /dir1/mysql.sock		-S指定sock文件,启动对应数据库
+			[root@mysql57 dir1]# ss -nulatp | grep 3307	 	ps -C mysqld  	//查看是否启动
+			
+			[root@mysql57 dir1]# mysqld_multi start 2		//添加PATH变量后可使用mysqld_multi命令启动
+			(永久设置PATH变量位置在/etc/profile) 添加  export PATH=/usr/local/mysql/bin:$PATH  完成后刷新 source /etc/profile
+			[root@mysql57 dir1]# /usr/local/mysql/bin/mysql -uroot -'pbpqvu6u9pg-J' -S  /dir2/mysql.sock
+			mysql> alter user root@"localhost" identified by "aaa123...A";
+			[root@mysql57 dir1]# /usr/local/mysql/bin/mysql -uroot -paaa123...A -S  /dir2/mysql.sock
+			[root@mysql57 dir1]# ss -nulatp | grep 3307
+			tcp    LISTEN     0      80       :::3307                 :::*                   users:(("mysqld",pid=24591,fd=20))
+			[root@mysql57 dir1]# ss -nulatp | grep 3308
+			tcp    LISTEN     0      80       :::3308                 :::*                   users:(("mysqld",pid=24800,fd=20))
+
+		用户测试(要先授权用户):
+			[root@mysql50 ~]# mysql -h192.168.4.57 -P3307 -uyaya66 -paaa123...A		//登录mysql1服务器
+			[root@mysql50 ~]# mysql -h192.168.4.57 -P3308 -uyaya66 -paaa123...A		//登录mysql2服务器
+
+		启用日志:
+			[root@mysql57 dir1]# vim /etc/my.cnf
+				[mysqld2]
+				erver_id=2
+				log-bin=mysqld2
+			[root@mysql57 dir1]# mysqld_multi --user=root --password=aaa123...A stop 2	//关闭
+			[root@mysql57 dir1]# mysqld_multi  start 2									//启动
+			[root@mysql57 dir1]# ls /dir2/mysqld2*
+			[root@mysql57 dir1]# /usr/local/mysql/bin/mysql -uroot -paaa123...A -S  /dir2/mysql.sock
+			mysql> show master status;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

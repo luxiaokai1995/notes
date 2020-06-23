@@ -1,0 +1,107 @@
+网络功能：
+资源共享
+信息传递
+提高可靠性     云盘
+增加系统处理能力      web   
+
+分组交换
+tcp/ip
+web技术
+
+iso
+ieee
+
+点到点    广域网
+星形  易于实现  方便故障排查
+网状  提高可靠性  
+
+osi七层模型 （理论框架）
+tcp/ip五层模型 （实际应用）
+
+10000Mbit
+
+100000000bit
+
+1k=1000
+1M=1000k
+
+物理层  数据链路层  网络层   传输层   会话层  表示层   应用层
+
+http  https  dns  ftp  tftp  smtp  snmp
+tcp   udp
+icmp  igmp  arp   ip
+
+物理层  数据链路层  网络层   传输层  应用层
+比特流  数据帧         数据包   数据段
+网卡     交换机          路由器   防火墙  计算机
+
+100M cat5
+100M cat5e  超五类
+1000M  cat6
+10000M cat7
+
+UTP 非屏蔽双绞线          STP 屏蔽双绞线
+
+568A 
+568B
+直通线
+交叉线
+全反线
+
+准备win2008环境，密码Taren1
+
+用户模式
+Switch>
+特权模式（一般用于查看配置信息）
+Switch>enable 
+Switch#
+全局配置模式（所做的配置对整个设备生效）
+Switch#configure terminal 
+Switch(config)#
+接口模式
+Switch(config)#interface fastEthernet 0/1
+Switch(config-if)#
+
+exit  返回上一模式
+end或快捷键 crtl+z 返回特权模式
+思科设备命令行不区分大小写，与Linux命令行不同
+命令输入错误卡住时同时按键盘ctrl+shift+6这三个键即可
+
+远程控制终端软件：
+SecureCRT
+Xshell 
+
+no
+
+Switch(config)# hostname s1     //配置主机名
+s1# show running-config    //查看当前的运行配置
+Switch(config)#enable password 123    //配置密码为123，之后退出到用户模式再次进入特权模式测试密码
+Switch#copy running-config startup-config    //保存配置
+Switch#write    //保存配置，同上效果
+Switch#erase startup-config   //删除配置文件，恢复出厂设置
+Erasing the nvram filesystem will remove all configuration files! Continue? [confirm]         //此时系统询问是否确定删除，按回车即可
+[OK]
+Erase of nvram: complete
+Switch#reload   //重启设备
+
+switch(config)#no ip domain-lookup     //禁止dns查询，不会因为错误的命令卡住
+Switch(config)#line console 0
+Switch(config-line)#logging synchronous    //实现输入同步，不被系统信息干扰
+Switch(config)#line console 0
+Switch(config-line)#exec-timeout 10 0    //修改10分钟后锁屏，设置0 0 是永不超时
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

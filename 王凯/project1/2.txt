@@ -1,0 +1,53 @@
+广播泛滥
+vlan  虚拟局域网
+1.控制广播
+2.提高安全
+3.提高带宽利用
+4.降低数据传输延迟
+理论最大创4096个  (0~4095)   厂商基本1000+  1 开始
+
+****************************************************
+1个广播域=1个部门=1个vlan=1个网段
+]vlan 2	//创建vlan 2
+
+vlan配置:	(系统视图)
+port link-type access 	//设置为access模式
+port default vlan 2	//设置为vlan 2
+
+port link-type trunk 	//设置为trunk模式
+port trunk allow-pass vlan all 	//允许所有vlan通过
+配置思路:
+1.规划vlan,需要创建多少
+2.将对应的接口加入vlan
+3.交换机之间的链路配置为trunk
+4.最后配置好ip做ping测试
+
+***************************************************
+单点故障
+
+链路聚合
+链路聚合,提高链路可靠,提高链路带宽
+注意:配置之前检查接口是否为默认状态,否则要清空配置
+clean configueation interface ethernet 0/0/7
+in e0/0/7
+undo shutdown
+1.找到要捆绑的接口,至少两个
+2.创建链路聚合接口
+interface Eth-trunk 1	//创建1号链路聚合接口
+3.将物理接口加入链路聚合接口
+trunkport ethernet 0/0/7 0/0/8		//将7 8 号绑在一起
+port link-type trunk 	//继续将1号链路聚合口配置为中继链路
+port trunk allow-pass vlan all		//放行所有vlan
+undo terminal monitor 	//关闭某些信息
+
+****************************************************
+
+路由表指明当前设备可以前往的区域(网段)
+
+display ip routing-table 	//查看路由表
+display ip interface brief 	//查看配置的ip
+
+直连路由:在设备接口配置好IP地址并且打开后自动产生
+静态路由:由管理员手工设置,小规模网络使用
+ip route-static 192.168.3.0 24 192.168.2.2	//配置静态IP
+

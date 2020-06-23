@@ -1,0 +1,145 @@
+********************************************************RDBMS2*DAY05**************************************************************
+一 :  PXC
+	1.1  PXC介绍
+		基于galera的mysql高可用集群解决方案(三台只剩一台都可以用,修好后自动同步)
+		与MHA相比特点:数据强一致性,无同步延迟 ,支持innodb存储引擎,没有主从切换,部署简单
+		
+	1.2  配置pxc集群
+		主机名映射(3台主机都要)
+			vim /etc/hosts
+			192.168.4.71 pxcnode71
+			192.168.4.72 pxcnode72
+			192.168.4.73 pxcnode73
+			
+	2.  安装软件(要解决依赖关系)
+		rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm
+  		yum -y install percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm
+   		rpm -ivh qpress-1.1-14.11.x86_64.rpm
+   		yum -y install Percona-XtraDB-Cluster-*
+   	
+   	3.  修改配置
+   		vim /etc/percona-xtradb-cluster.conf.d/mysqld.cnf    	//只修改server_id
+   		vim /etc/percona-xtradb-cluster.conf.d/mysqld_safe.cnf	//不修改,使用默认的,只查看
+		vim /etc/percona-xtradb-cluster.conf.d/wsrep.cnf
+			wsrep_cluster_address=gcomm://192.168.4.71,192.168.4.72,192.168.4.73	//集群成员ip
+			wsrep_node_address=192.168.4.71		//本机ip
+			wsrep_node_name=pxcnode72			//本机主机名
+			wsrep_sst_auth="sstuser:aaa123...A"	//sst登录用户名:密码(SST数据同步)
+
+	4.  启动服务
+		systemctl start mysql@bootstrap.service			//一台上启动就可以
+		grep 'password' /var/log/mysqld.log			//过滤初始密码
+		mysql -uroot -paaa123...A
+		grant reload,lock tables,replication client,process on *.* to sstuser@"localhost" identified by "aaa123...A";		//给sst用户授权
+		systemctl start mysql		//启动另两台服务器
+		ss -nulatp | grep 4567		//查看启动情况
+		
+	5.  测试机群
+		5.1 查看主机在集群中的状态	
+			show status like "%wsrep%";		//数据库内查看服务状态
+		5.  2客户端连接集群中的主机,访问数据
+			在任意一台添加授权用户,在其他两台查看授权用户
+			grant all on *.* to admin@"%" identified by "aaa123...A";
+			show grants for admin@"%";
+		5.3客户端50连接集群中任意一台数据库服务器,访问数据
+		  	mysql -h192.168.4.71 -uroot -paaa123...A
+		  	show   grants;
+		  	create database db10;
+			create table db10.a(id int primary key auto_increment,name char(10));
+			insert into db10.a(name) values("aaaa");
+			mysql> select * from db10.a;
+					+----+------+
+					| id | name |
+					+----+------+
+					|  1 | hhhh |
+					| 4  | aaaa  | 
+
+		
+			
+二 : MySQL存储引擎
+	2.1 存储引擎介绍
+	
+	2.2 列出可用引擎列表
+		show engines;
+		
+	2.3  修改默认存储引擎
+		vim  /etc/my.cnf
+		添加   default-storage-engine=myisam		//修改默认为myisam引擎
+		
+	2.4  修改表的存储引擎
+		mysql> alter table db10.c ebgine=myisam;
+		
+	2.5  innodb存储引擎
+		特点: 
+			支持行级锁定
+			 支持事务,事务回滚,外键
+		表文件
+			表名.frm		//表结构
+			表名.ibd		//索引,数据
+		事务日志文件
+			ibdata1    ib_logfile0      ib_logfile0
+			
+	2.6   myisam存储引擎
+		特点
+			支持表级锁
+			不支持事物,事务回滚,外键
+		表文件
+			表名.frm		//表结构
+			表名.MYI	//索引
+			表名.MYD	//数据
+	
+	2.7 MySQL锁机制
+		锁粒度		表级锁   行级锁
+		锁类型		读锁   写锁
+		查看当前锁状态
+			show status like  "table_lock%";
+	
+	2.8 事务  : 从连接成功开始,到连接结束之间所有操作叫事务
+		事务特性:(ACID) 原子性 一致性 隔离性 持久性
+			show variables like "autocommit";		//查看提交状态
+			set autocommit=off;		//关闭自动提交
+			rollback;		//数据回滚
+			commit;		//提交数据
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

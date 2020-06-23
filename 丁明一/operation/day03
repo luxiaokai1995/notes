@@ -1,0 +1,163 @@
+nginx web服务器
+
+代理服务器
+	功能:
+		1.调度(轮询)
+		2.健康检查
+upstream abc{
+	server 192.168.2.100 weight=2;
+	server 192.168.2.200 max_fails=   fail_timeout=;
+}
+	server{
+	    proxy_pass http://abc;
+	    proxy_pass abc;
+}
+#####################################################
+
+修改默认404页面:主配置文件下的error..404(去#号)
+error_page 404  /404.html;
+error_page 402  /402.html;
+error_page 401  /401.html;
+
+error_page 401 402 403 404 405   /a.html;
+
+#####################################################
+
+web代理服务器/web调度器(http协议)
+
+默认不安装
+./configure --with-stream
+
+
+nginx服务器:
+   关心的问题:
+	谁在访问你
+	访问量多少
+	并发量多少
+	PV是多少(page view  页面被点击多少次)
+	UV是多少(user view  有多少用户点击)
+	有没有等待用户,是多少
+
+统计信息模块:
+--with-http_stub_status_module
+
+[root@proxy ~]# cat /usr/local/nginx/conf/nginx.conf
+… …
+location /status {
+                stub_status on;
+				 #allow IP地址;
+				 #deny IP地址;
+        }
+… …
+[root@proxy ~]# nginx
+
+ss命令可以查看系统中启动的端口信息，该命令常用选项如下：
+
+-a显示所有端口的信息
+-n以数字格式显示端口号
+-t显示TCP连接的端口
+-u显示UDP连接的端口
+-l显示服务正在监听的端口信息，如httpd启动后，会一直监听80端口
+-p显示监听端口的服务名称是什么（也就是程序名称）
+
+########################################################
+tcp/udp:
+	3次握手,4次断开
+
+http   一次连接,一次请求
+keepalive   一次连接多次请求
+
+#############################################
+	PV是多少(page view  页面被点击多少次)
+	UV是多少(user view  有多少用户点击)
+		/usr/local/nginx/logs/access.log
+		awk '{IP[$1]++} END{for (i in IP){print IP[i],i}}' access.log
+
+#############################################
+
+客户端的电脑(客户端)--------------------服务器
+缓存的功能
+		存什么,存多久
+		动态数据	
+		静态数据(图片视频音频)
+		location ~* \.(jpg|png)  {
+        expires 30d;				//如果访问图片,则缓存30天
+}
+
+#################################
+kill 作用是给程序发送 信号
+
+kill -l 	//查看
+
+####################################################
+
+
+cd /var/lib/php/session/            //查看服务器本地的Session信息
+
+web页面更改背景颜色:
+<body bgcolor=blue>
+
+####################################################
+PHP实现session共享
+
+[root@web1 ~]# yum -y install  php-pecl-memcache
+
+[root@web1 ~]# vim  /etc/php-fpm.d/www.conf            //修改该配置文件的两个参数
+//文件的最后2行
+
+php_value[session.save_handler] = files
+php_value[session.save_path] = /var/lib/php/session
+//原始文件，默认定义Sessoin会话信息本地计算机（默认在/var/lib/php/session）
+
+php_value[session.save_handler] = memcache
+php_value[session.save_path] = "tcp://192.168.2.5:11211"
+
+
+session,cookie
+HTTP 无状态协议
+
+				web1
+client--------proxy 			memcached(数据库)
+				web2
+
+web1创建session (文件名=状态)
+web1创建session (连接memcached(234df89=状态))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

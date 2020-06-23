@@ -1,0 +1,73 @@
+ 案例1：服务器硬件
+
+
+远程控制卡:
+
+idrac ----- Dell
+1.配置网络参数,序列号
+  账户密码(可以使用图形操作)(收费)
+2.端口重定向
+   idrack网络参数
+    账户和密码(命令行操作)(免费)
+
+idrac setting
+   network
+	LOM1/LOM2/LOM3/LOM4
+	   LOM1
+
+
+
+iLO ------- HP
+Tivoli -----IBM
+
+
+
+远程管理端主机配置，安装ipmitool软件包
+[root@centos7 ~]# yum -y install ipmitool
+常用命令操作列表如下。
+[root@centos7 ~]# ipmitool -I lanplus -U root -H 服务器IP  power status
+#查看服务器电源状态
+[root@centos7 ~]# ipmitool -I lanplus -U root -H 服务器IP  power on
+#开启服务器电源
+[root@centos7 ~]# ipmitool -I lanplus -U root -H 服务器IP  power off
+#关闭服务器电源
+[root@centos7 ~]# ipmitool -I lanplus -U root -H 服务器IP  power reset
+#重启服务器电源
+[root@centos7 ~]# ipmitool -I lanplus -U root -H 服务器IP  sol activate
+#远程管理
+
+
+#####################################################################
+
+案例2：部署LNMP动态网站.
+
+使用Wordpress后台管理界面，调整Wordpress版式
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

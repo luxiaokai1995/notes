@@ -1,0 +1,131 @@
+**********************************************NoSQL*DAY02****************************************************
+一 :集群环境准备
+	在51-56设置集群　6台redis服务器
+　		/etc/init.d/redis_6379 stop  
+　　	vim /etc/redis/6379.conf
+　　		70 bind 192.168.4.51
+　　　		93 port 6351
+　　　		501 # requirepass foobared　　//密码
+　　　		815 cluster-enabled yes　　//启用集群功能
+　　　		823 cluster-config-file nodes-6379.conf　　//储备集群信息文件
+　　　		829 cluster-node-timeout 5000　　//链接超时服务　　5秒
+　　	rm -rf /var/lib/redis/6379/＊　　　//删除所有相关原来的东西
+　　	vim +43 /etc/init.d/redis_6379　　//修改脚本
+　　		$CLIEXEC -p -h 192.168.4.51 -p 6351  shutdown　
+		 /etc/init.d/redis_6379 start　　　　//重新启动
+		redis-cli -h 192.168.4.51 -p 6351 　　
+哈希池　0-16383　分3个大块　每个大块一主一从
+0-5460  5461-10922  10923-16383
+
+二 :  部署redis集群
+	1.配置管理主机51
+		部署ruby脚本运行环境
+			yum -y install rubygems	//安装依赖包
+			rpm -q ruby	
+			scp /linux-soft/03/redis/redis-3.2.1.gem root@192.168.4.51:/root/	//拷贝gem包
+			gem install redis-3.2.1.gem	//安装
+			1 gem installed
+		创建集群管理脚本
+			cd redis-4.0.8/src/
+			mkdir /root/bin
+			cp redis-trib.rb /root/bin/
+			chmod +x redis-trib.rb 
+			redis-trib.rb help
+	2. 创建集群
+		vim /etc/redis/6379.conf
+		815 cluster-enabled yes　　//启用集群功能
+　　　	823 cluster-config-file nodes-6379.conf　　//储备集群信息文件
+　　　	829 cluster-node-timeout 5000　　//链接超时服务　　5秒
+　　　	/etc/init.d/redis_6379 start
+		redis-trib.rb create --replicas 1 192.168.4.51:6351 192.168.4.52:6352 192.168.4.53:6353 192.168.4.54:6354 192.168.4.55:6355 			192.168.4.56:6356
+		[OK] All 16384 slots covered.
+		redis-trib.rb create info		//查看集群信息
+		192.168.4.53:6353> cluster info		//查看集群信息
+		192.168.4.53:6353> cluster nodes		//查看集群节点信息
+		redis-trib.rb  check 192.168.4.52:6352		//检查集群主机角色
+
+	3. 访问集群
+ 		集群存取数据工作原理:
+ 			变量名和crc16算法做hash计算,得到一个数字 ,和16384取余,根据余数得值,找对应的redis服务器
+			redis-cli -c -h 192.168.4.52 -p 6352
+			redis-cli  -c   -h  ip地址   -p  端口号   选项  -c   集群模式
+			
+三 : 管理redis集群
+	3.1 测试集群高可用功能
+		关闭53服务,启动53服务
+		redis-trib.rb  check 192.168.4.56:6356
+		把主服务器的redis服务停止,对应的从服务器会自动升级为主服务器.
+		宕机的主服务器redis服务重新启动后,自动做当前主服务器的从库,并自动同步宕机期间产生的新数据
+	
+	3.2  向集群中添加新主机
+		3.2.1  添加master角色主机 (管理主机51操作)
+			 redis-trib.rb  add-node  192.168.4.58:6358  192.168.4.53:6353		//53为master
+			 redis-trib.rb info 192.168.4.53:6353		//查看是否添加成功
+			 redis-trib.rb check 192.168.4.53:6353    		//检测集群
+			  redis-trib.rb  reshard   192.168.4.53:6353  
+			  How many slots do you want to move (from 1 to 16384)?4096   		//拿出4096个hash 槽给主机192.168.4.58
+			  What is the receiving node ID?  c5e0da48f335c46a2ec199faa99b830f537dd8a0  		 //主机192.168.4.58的id值
+			  Source node #1:all    		  //从当前所有master服务器获取hash槽
+			  Do you want to proceed with the proposed reshard plan (yes/no)?yes 		//同意以上配置
+			  redis-trib.rb info 192.168.4.53:6353
+		3.2.2  添加slave角色主机
+			redis-trib.rb add-node  --slave 192.168.4.59:6359  192.168.4.51:6351 	 //执行添加命令
+			 Configure node as replica of 192.168.4.58:6358. 		//提示添加完成
+			 redis-trib.rb  info  192.168.4.51:6351 		//查看信息
+			 redis-trib.rb check 192.168.4.53:6353    //检测集群
+			
+	3.3  从集群中移除主机
+		3.3.1  移除slave角色主机
+			redis-trib.rb del-node 192.168.4.57:6357 d9fcd44a06e9661ff033c86bc1a8b071d1919c4c   //执行移除命令
+				>>> SHUTDOWN the node. //停止移除服务的Redis服务	
+		3.3.2  移除master角色主机
+			释放占用的hash槽
+			 	redis-trib.rb  reshard 192.168.4.58:6358
+				 How many slots do you want to move (from 1 to 16384)?4096 //移除4096个数槽
+				What is the receiving node ID?  bc5c4e082a5a3391b634cf433a6486c867cfc44b 	
+								//要移动给谁的id即目标主机（这里可以随机写一个master的ID）  
+				 Source node #1: c5e0da48f335c46a2ec199faa99b830f537dd8a0 		//从谁那移动即源主机,要删除主机的id
+			 	Source node #2: done           //设置完毕
+				 Do you want to proceed with the proposed reshard plan (yes/no)?yes 		//提交
+			移除主机
+				redis-trib.rb del-node 192.168.4.58:6358  43f844d7ff020a7650881ded2c1747a29e1bbe61
+				>>> Removing node 43f844d7ff020a7650881ded2c1747a29e1bbe61 from cluster 192.168.4.58:6358
+				>>> Sending CLUSTER FORGET messages to the cluster...
+				>>> SHUTDOWN the node.		//关闭主机redis服务
+
+			把移除的redis主机添加到集群
+				1  启动redis服务(要添加的主机)
+					/etc/init.d/redis_6379 start
+				2  重置集群信息(要添加的主机)
+					redis-cli -h 192.168.4.57 -p 6357
+					192.168.4.57:6357> cluster reset
+				3  添加主机到集群(管理主机)
+					[root@mysql51 ~]# redis-trib.rb add-node 192.168.4.57:6357 192.168.4.52:6352
+				4  查看集群信息
+					[root@mysql51 ~]# redis-trib.rb info 192.168.4.56:6356
+
+	还原操作:
+		停止服务
+		rm -rf /var/lib/redis/6379/*
+		注释集群中的集群项
+		815 823 829
+		启动服务
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

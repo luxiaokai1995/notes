@@ -1,0 +1,161 @@
+****************************************************COURSE*DAY05***************************************************
+大数据特性: 5V
+	Volume大体量		Variety多样性		Velocity时效性		Veracity准确性		Value大价值
+一 : hadoop介绍
+			hadoop常用组件:
+				HDFS:				Hadoop分布式文件系统(核心组件)
+				MapReduce: 		分布式计算框架(核心组件)
+				Yarn: 				集群资源管理系统(核心组件)
+				Zookeeper: 		分布式协作系统
+				Hbase: 			分布式列存数据库
+				Hive: 				基于hadoop的数据仓库
+				Sqoop: 			数据同步工具
+				Pig: 				基于hadoop的数据流系统
+				Mahout: 			数据挖掘算法库
+				Flume: 			日志收集工具
+				
+		HDFS角色及概念:			数据储存的基础,高度容错的系统,在低成本通用硬件上运行
+			NameNode:				管理名称空间和数据块映射信息,配置副本策略,处理客户端请求	//fsimages: 名称空间	 fsedit: 文件变更日志
+			Secondary NameNode: 	专门存储合并日志的,(NameNode秘书)
+			DataNode:				存储数据,汇报存储信息给NameNode
+			Client:				切分文件,访问NameNode和DataNode
+			
+		MapReduce角色及概念:		JAVA实现的分布式计算框架
+			JobTracker: 			master节点,只有一个分解任务,派发给TaskTracker
+			TaskTracker:			Slave节点,多台运行Map Task和ReduceTask 与JobTracker交互,汇报任务状态
+			Map Task:				解析每条数据记录,传递给用户编写的map()并执行,将输出结果写入本地磁盘
+			Reduce Task: 		从Map Task执行结果中,远程读取输入数据,对数据排序,传递给用户编写的reduce函数执行
+		Yarn结构:					Hadoop的一个通用的资源管理系统
+			ResourceManager:	处理客户端请求,启动/监控ApplicationMaster,监控NodeManager,资源分配与调度
+			NodeManager:			单个节点资源管理,处理来自ApplicationMaster和ResourceManager的命令
+			Container: 			多维资源及环境变量,启动命令等运行相关的信息资源调度分配
+			ApplicationMaster:	数据切分,申请资源进行分配,任务监控与容错
+			Client:				交互,监控状态,提交杀死应用程序 
+			
+二 : 安装hadoop(单机模式)
+	[root@nn01 ~]# yum  install java-1.8.0-openjdk-devel		//安装环境
+	[root@nn01 ~]# tar -xf hadoop-2.7.7.tar.gz			//解压hadoop
+	[root@nn01 ~]# mv hadoop-2.7.7 /usr/local/hadoop		//移动
+	[root@nn01 ~]# jps				
+	22674 Jps
+	[root@nn01 ~]# rpm -ql java-1.8.0-openjdk		//查看javaopenjdk安装目录
+		/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-2.b14.el7.x86_64/jre/
+
+	[root@nn01 ~]# vim /usr/local/hadoop/etc/hadoop/hadoop-env.sh			//编写hadoop配置文件
+		25 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-2.b14.el7.x86_64/jre/		//java安装路径
+		33 export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/usr/local/hadoop/etc/hadoop"}		//hadoop配置文件目录
+		
+	[root@nn01 ~]# ./hadoop		
+
+	[root@nn01 ~]# ./bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.7.jar wordcount input output
+						命令				|			固定格式 											|  参数	| 分析的文件夹|  输出的文件夹
+
+三 : 环境准备
+	hadoop官方文档:		http://hadoop.apache.org/docs/r2.7.7/
+	3.1	新的机器装环境及hosts文件:
+			[root@node1 ~]# yum  install java-1.8.0-openjdk-devel		//新的机器装环境及hosts文件
+			[root@nn01 hadoop]# vim /etc/hosts
+				192.168.1.60 nn01
+				192.168.1.61 node1
+				192.168.1.62 node2
+				192.168.1.63 node3	
+			
+				/etc/ssh/ssh_config
+					StrictHostKeyChecking no		//不要yes
+	3.2	[root@nn01 .ssh]# cd /root/.ssh/		//配置免密码登录(所有)
+		[root@nn01 .ssh]# ssh-keygen 
+		[root@nn01 .ssh]# ssh-copy-id (node1,node2,node3 nn01)
+		[root@nn01 .ssh]# ssh node1
+		
+四 : 安装hadoop完全分布式	
+		HDFS完全分布式系统配置
+			环境变量配置文件:	hadoop-env.sh
+			核心配置文件:		core-site.xml
+			HDFS配置文件:		hdfs-site.xml
+			节点配置文件:		slaves		
+		4.1 编写hadoop配置文件:
+			[root@nn01 ~]# vim /usr/local/hadoop/etc/hadoop/hadoop-env.sh			//编写hadoop配置文件
+				25 export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-2.b14.el7.x86_64/jre/		//java安装路径
+				33 export HADOOP_CONF_DIR=${HADOOP_CONF_DIR:-"/usr/local/hadoop/etc/hadoop"}		//hadoop配置文件目录
+			
+固定格式:
+  <property>
+    <name></name>               
+    <value></value>
+  </property>
+
+		4.2 修改核心配置文件:
+			官方文档位置:	http://hadoop.apache.org/docs/r2.7.7/hadoop-project-dist/hadoop-common/core-default.xml
+			[root@nn01 hadoop]# vim /usr/local/hadoop/etc/hadoop/core-site.xml		//修改核心配置文件
+				<configuration>			//固定格式
+				  <property>
+					<name>fs.defaultFS</name>		//文件系统配置参数
+					<value>hdfs://nn01:9000</value>	
+				  </property>
+				  <property>
+					<name>hadoop.tmp.dir</name>		//数据目录配置参数(数据根目录)
+					<value>/var/hadoop</value>
+				  </property>
+				</configuration>
+				
+		4.3 修改HDFS配置文件:	
+			官方文档位置:	http://hadoop.apache.org/docs/r2.7.7/hadoop-project-dist/hadoop-hdfs/hdfs-default.xml
+			[root@nn01 hadoop]# vim /usr/local/hadoop/etc/hadoop/hdfs-site.xml		//修改HDFS配置文件
+				<configuration>
+				  <property>
+					<name>dfs.namenode.http-address</name>		//namenode地址声明
+					<value>nn01:50070</value>
+				  </property>
+				  <property>
+					<name>dfs.namenode.secondary.http-address</name>		//secondary.namenode地址声明
+					<value>nn01:50090</value>
+				  </property>
+				  <property>
+					<name>dfs.replication</name>      	//文件冗余份数              
+					<value>2</value>
+				  </property>
+				</configuration>                 
+				
+		4.4 修改节点配置文件:
+			[root@nn01 hadoop]# vim /usr/local/hadoop/etc/hadoop/slave		//节点配置文件,添加DataNode节点主机名称
+				node1			//只写主机名
+				node2
+				node3
+
+		4.5 同步配置
+			[root@nn01 hadoop]# for i in node{1..3}
+			> do
+			> rsync -aXSH --delete /usr/local/hadoop ${i}:/usr/local/ &			//老师写的,利用rsync同步
+			> done
+		4.6 启动集群
+			[root@nn01 ~]# cd /usr/local/hadoop/sbin/
+			[root@nn01 sbin]# ./start-dfs.sh 		//启动
+			[root@nn01 sbin]# ./stop-dfs.sh			//停止
+
+		4.7 查看状态
+		[root@node1 ~]# jps
+			23249 Jps
+			23074 DataNode		//成功,没有就要排错
+		[root@node1 hadoop]# ./bin/hdfs dfsadmin -report		//查看DataNode状态(能看到所有node)
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
